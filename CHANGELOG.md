@@ -1,6 +1,7 @@
 ## 0.1.1 (unreleased)
 
-- Improved handling of unsigned integers
+- Fixed handling of unsigned integers
+- Fixed error with timestamps
 
 ## 0.1.0 (2024-11-20)
 

@@ -121,6 +121,8 @@ module DeltaLake
             Polars::Int32
           when Polars::UInt64
             Polars::Int64
+          when Polars::Datetime
+            Polars::Datetime.new("us", v.time_zone) if v.time_unit != "us"
           end
         new_schema[k] = new_type if new_type
       end

@@ -51,7 +51,10 @@ class WriteTest < Minitest::Test
       "float64" => Polars::Float64,
       "decimal" => Polars::Decimal,
       "boolean" => Polars::Boolean,
-      "date" => Polars::Date
+      "date" => Polars::Date,
+      "datetime_ms" => Polars::Datetime.new("ms"),
+      "datetime_us" => Polars::Datetime.new("us"),
+      "datetime_ns" => Polars::Datetime.new("ns")
       # "string" => Polars::String,
       # "binary" => Polars::Binary
     }
@@ -79,6 +82,9 @@ class WriteTest < Minitest::Test
       assert_equal "decimal(38,0)", types["decimal"]
       assert_equal "boolean", types["boolean"]
       assert_equal "date", types["date"]
+      assert_equal "timestamp_ntz", types["datetime_ms"]
+      assert_equal "timestamp_ntz", types["datetime_us"]
+      assert_equal "timestamp_ntz", types["datetime_ns"]
 
       # assert_equal "string", types["string"]
       # assert_equal "binary", types["binary"]
@@ -102,6 +108,9 @@ class WriteTest < Minitest::Test
       assert_equal Polars::Decimal.new(38, 0), pl_types["decimal"]
       assert_equal Polars::Boolean, pl_types["boolean"]
       assert_equal Polars::Date, pl_types["date"]
+      assert_equal Polars::Datetime.new("us"), pl_types["datetime_ms"]
+      assert_equal Polars::Datetime.new("us"), pl_types["datetime_us"]
+      assert_equal Polars::Datetime.new("us"), pl_types["datetime_ns"]
     end
   end
 
