@@ -1,0 +1,91 @@
+require_relative "test_helper"
+
+class TableTest < Minitest::Test
+  def test_to_polars
+    df = Polars::DataFrame.new({"a" => [1, 2, 3]})
+    with_table(df) do |dt|
+      assert_equal df, dt.to_polars
+      assert_equal df, dt.to_polars(eager: false).collect
+    end
+  end
+
+  def test_files
+    df = Polars::DataFrame.new({"a" => [1, 2, 3]})
+    with_table(df) do |dt|
+      assert_equal 1, dt.file_uris.length
+      assert_equal 1, dt.files.length
+    end
+  end
+
+  def test_metadata
+    df = Polars::DataFrame.new({"a" => [1, 2, 3], "b" => [4, 4, 5]})
+    with_table(df, name: "hello", description: "world", partition_by: "b") do |dt|
+      metadata = dt.metadata
+      assert_kind_of String, metadata.id
+      assert_equal "hello", metadata.name
+      assert_equal "world", metadata.description
+      assert_equal ["b"], metadata.partition_columns
+      # consistent with Python
+      assert_kind_of Integer, metadata.created_time
+      assert_empty metadata.configuration
+    end
+  end
+
+  def test_schema
+    df = Polars::DataFrame.new({"a" => [1, 2, 3]})
+    with_table(df) do |dt|
+      schema = dt.schema
+      assert_equal 1, schema.fields.length
+      assert_equal "a", schema.fields[0].name
+      assert_equal "long", schema.fields[0].type
+      assert_equal true, schema.fields[0].nullable
+      assert_match %!@fields=[<DeltaLake::Field name="a", type="long", nullable=true>]!, dt.schema.inspect
+    end
+  end
+
+  def test_delete
+    df = Polars::DataFrame.new({"a" => [1, 2, 3]})
+    with_table(df) do |dt|
+      metrics = dt.delete("a > 1")
+      assert_equal 1, metrics[:num_added_files]
+      assert_equal 1, metrics[:num_removed_files]
+      assert_equal 2, metrics[:num_deleted_rows]
+      assert_equal 1, metrics[:num_copied_rows]
+
+      expected = Polars::DataFrame.new({"a" => [1]})
+      assert_equal expected, dt.to_polars
+
+      dt.delete
+      assert_empty dt.to_polars
+    end
+  end
+
+  def test_vacuum
+    df = Polars::DataFrame.new({"a" => [1, 2, 3]})
+    with_table(df) do |dt|
+      dt.delete
+
+      # minimum retention is 168 hours
+      assert_empty dt.vacuum
+    end
+  end
+
+  def test_missing
+    with_new_table do |table_uri|
+      error = assert_raises(DeltaLake::TableNotFoundError) do
+        DeltaLake::Table.new(table_uri)
+      end
+      assert_equal "no log files", error.message
+      assert_equal false, DeltaLake::Table.exists?(table_uri)
+    end
+  end
+
+  private
+
+  def with_table(df, **write_options)
+    with_new_table do |table_uri|
+      DeltaLake.write(table_uri, df, **write_options)
+      yield DeltaLake::Table.new(table_uri)
+    end
+  end
+end
