@@ -14,7 +14,7 @@ Add this line to your application’s Gemfile:
 gem "deltalake-rb"
 ```
 
-It can take a few minutes to compile the gem.
+It can take 5-10 minutes to compile the gem.
 
 ## Getting Started
 
