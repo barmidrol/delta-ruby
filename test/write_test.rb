@@ -54,7 +54,10 @@ class WriteTest < Minitest::Test
       "date" => Polars::Date,
       "datetime_ms" => Polars::Datetime.new("ms"),
       "datetime_us" => Polars::Datetime.new("us"),
-      "datetime_ns" => Polars::Datetime.new("ns")
+      "datetime_ns" => Polars::Datetime.new("ns"),
+      "datetime_ms_tz" => Polars::Datetime.new("ms", "UTC"),
+      "datetime_us_tz" => Polars::Datetime.new("us", "UTC"),
+      "datetime_ns_tz" => Polars::Datetime.new("ns", "UTC")
       # "string" => Polars::String,
       # "binary" => Polars::Binary
     }
@@ -78,13 +81,17 @@ class WriteTest < Minitest::Test
 
       assert_equal "float", types["float32"]
       assert_equal "double", types["float64"]
-
       assert_equal "decimal(38,0)", types["decimal"]
+
       assert_equal "boolean", types["boolean"]
+
       assert_equal "date", types["date"]
       assert_equal "timestamp_ntz", types["datetime_ms"]
       assert_equal "timestamp_ntz", types["datetime_us"]
       assert_equal "timestamp_ntz", types["datetime_ns"]
+      assert_equal "timestamp", types["datetime_ms_tz"]
+      assert_equal "timestamp", types["datetime_us_tz"]
+      assert_equal "timestamp", types["datetime_ns_tz"]
 
       # assert_equal "string", types["string"]
       # assert_equal "binary", types["binary"]
@@ -104,13 +111,17 @@ class WriteTest < Minitest::Test
 
       assert_equal Polars::Float32, pl_types["float32"]
       assert_equal Polars::Float64, pl_types["float64"]
-
       assert_equal Polars::Decimal.new(38, 0), pl_types["decimal"]
+
       assert_equal Polars::Boolean, pl_types["boolean"]
+
       assert_equal Polars::Date, pl_types["date"]
       assert_equal Polars::Datetime.new("us"), pl_types["datetime_ms"]
       assert_equal Polars::Datetime.new("us"), pl_types["datetime_us"]
       assert_equal Polars::Datetime.new("us"), pl_types["datetime_ns"]
+      assert_equal Polars::Datetime.new("us", "UTC"), pl_types["datetime_ms_tz"]
+      assert_equal Polars::Datetime.new("us", "UTC"), pl_types["datetime_us_tz"]
+      assert_equal Polars::Datetime.new("us", "UTC"), pl_types["datetime_ns_tz"]
     end
   end
 
