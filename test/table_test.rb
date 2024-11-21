@@ -69,6 +69,10 @@ class TableTest < Minitest::Test
       dt.delete
 
       assert_empty dt.vacuum
+
+      # fix flakiness
+      sleep(0.001)
+
       assert_equal 1, dt.vacuum(retention_hours: 0, enforce_retention_duration: false).size
       assert_equal 1, dt.vacuum(dry_run: false, retention_hours: 0, enforce_retention_duration: false).size
       assert_empty dt.vacuum(retention_hours: 0, enforce_retention_duration: false)
