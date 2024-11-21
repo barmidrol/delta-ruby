@@ -23,7 +23,6 @@ module DeltaLake
   class SchemaMismatchError < Error; end
 
   class << self
-
     def write(
       table_or_uri,
       data,
