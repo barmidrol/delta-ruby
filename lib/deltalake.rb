@@ -110,15 +110,12 @@ module DeltaLake
     # https://github.com/delta-io/delta/blob/master/PROTOCOL.md#primitive-types
     def convert_polars_data(data)
       new_schema = {}
-      schema = data.schema
-      schema.each do |k, v|
+      data.schema.each do |k, v|
         new_type = convert_polars_type(v)
         new_schema[k] = new_type if new_type
       end
 
       if new_schema.any?
-        # TODO raise error by default
-        warn "[deltalake] Invalid data types for Delta Lake: #{schema.slice(*new_schema.keys)}"
         data.cast(new_schema)
       else
         data
