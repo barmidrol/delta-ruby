@@ -48,7 +48,12 @@ class WriteTest < Minitest::Test
       "uint32" => Polars::UInt32,
       "uint64" => Polars::UInt64,
       "float32" => Polars::Float32,
-      "float64" => Polars::Float64
+      "float64" => Polars::Float64,
+      "decimal" => Polars::Decimal,
+      "boolean" => Polars::Boolean,
+      "date" => Polars::Date
+      # "string" => Polars::String,
+      # "binary" => Polars::Binary
     }
     row = {}
     schema.each_key do |k|
@@ -74,6 +79,13 @@ class WriteTest < Minitest::Test
 
       assert_equal "float", types["float32"]
       assert_equal "double", types["float64"]
+
+      assert_equal "decimal(38,0)", types["decimal"]
+      assert_equal "boolean", types["boolean"]
+      assert_equal "date", types["date"]
+
+      # assert_equal "string", types["string"]
+      # assert_equal "binary", types["binary"]
 
       assert_equal schema, dt.to_polars.schema
     end
