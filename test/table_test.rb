@@ -93,13 +93,4 @@ class TableTest < Minitest::Test
       assert_equal false, DeltaLake::Table.exists?(table_uri)
     end
   end
-
-  private
-
-  def with_table(df, **write_options)
-    with_new_table do |table_uri|
-      DeltaLake.write(table_uri, df, **write_options)
-      yield DeltaLake::Table.new(table_uri)
-    end
-  end
 end
