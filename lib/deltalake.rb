@@ -137,6 +137,9 @@ module DeltaLake
       when Polars::List
         inner = convert_polars_type(t.inner)
         Polars::List.new(inner) if inner
+      when Polars::Array
+        inner = convert_polars_type(t.inner)
+        Polars::Array.new(t.inner, t.width) if inner
       end
     end
   end
