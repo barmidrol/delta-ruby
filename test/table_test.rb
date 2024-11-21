@@ -63,10 +63,20 @@ class TableTest < Minitest::Test
   def test_vacuum
     df = Polars::DataFrame.new({"a" => [1, 2, 3]})
     with_table(df) do |dt|
+      assert_empty dt.vacuum
+      assert_empty dt.vacuum(retention_hours: 0, enforce_retention_duration: false)
+
       dt.delete
 
-      # minimum retention is 168 hours
       assert_empty dt.vacuum
+      assert_equal 1, dt.vacuum(retention_hours: 0, enforce_retention_duration: false).size
+      assert_equal 1, dt.vacuum(dry_run: false, retention_hours: 0, enforce_retention_duration: false).size
+      assert_empty dt.vacuum(retention_hours: 0, enforce_retention_duration: false)
+
+      error = assert_raises(DeltaLake::Error) do
+        dt.vacuum(retention_hours: 0)
+      end
+      assert_match "minimum retention for vacuum is configured to be greater than 168 hours", error.message
     end
   end
 
