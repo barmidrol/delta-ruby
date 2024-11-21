@@ -24,7 +24,7 @@ class TypesTest < Minitest::Test
       "datetime_ns_tz" => Polars::Datetime.new("ns", "UTC"),
       # "string" => Polars::String,
       # "binary" => Polars::Binary,
-      "list" => Polars::List.new(Polars::Int32)
+      "list" => Polars::List.new(Polars::UInt32)
     }
     row = {}
     schema.each_key do |k|
