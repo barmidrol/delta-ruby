@@ -70,16 +70,16 @@ dt = DeltaLake::Table.new("./data/delta", version: 1)
 dt.load_as_version(1)
 ```
 
-Get metadata
-
-```ruby
-dt.metadata
-```
-
 Get the schema
 
 ```ruby
 dt.schema
+```
+
+Get metadata
+
+```ruby
+dt.metadata
 ```
 
 ## API
