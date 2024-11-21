@@ -110,6 +110,16 @@ class TypesTest < Minitest::Test
     end
   end
 
+  def test_duration
+    with_new_table do |table_uri|
+      df = Polars::DataFrame.new({"a" => [1]}, schema: {"a" => Polars::Duration})
+      error = assert_raises(DeltaLake::SchemaMismatchError) do
+        DeltaLake.write(table_uri, df)
+      end
+      assert_equal "Invalid data type for Delta Lake: Duration(Microsecond)", error.message
+    end
+  end
+
   def test_unsigned_integer
     with_new_table do |table_uri|
       df = Polars::DataFrame.new({"a" => [255]}, schema: {"a" => Polars::UInt8})
