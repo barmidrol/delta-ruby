@@ -21,13 +21,20 @@ class TypesTest < Minitest::Test
       "datetime_ns" => Polars::Datetime.new("ns"),
       "datetime_ms_tz" => Polars::Datetime.new("ms", "UTC"),
       "datetime_us_tz" => Polars::Datetime.new("us", "UTC"),
-      "datetime_ns_tz" => Polars::Datetime.new("ns", "UTC")
+      "datetime_ns_tz" => Polars::Datetime.new("ns", "UTC"),
       # "string" => Polars::String,
-      # "binary" => Polars::Binary
+      # "binary" => Polars::Binary,
+      "list" => Polars::List.new(Polars::Int32)
     }
     row = {}
     schema.each_key do |k|
-      row[k] = 1
+      row[k] =
+        case k
+        when "list"
+          [1]
+        else
+          1
+        end
     end
     df = Polars::DataFrame.new([row], schema: schema)
     with_table(df) do |dt|
@@ -60,6 +67,8 @@ class TypesTest < Minitest::Test
       # assert_equal "string", types["string"]
       # assert_equal "binary", types["binary"]
 
+      assert_equal "array<integer>", types["list"]
+
       pl_types = dt.to_polars.schema
 
       assert_equal Polars::Int8, pl_types["int8"]
@@ -86,6 +95,8 @@ class TypesTest < Minitest::Test
       assert_equal Polars::Datetime.new("us", "UTC"), pl_types["datetime_ms_tz"]
       assert_equal Polars::Datetime.new("us", "UTC"), pl_types["datetime_us_tz"]
       assert_equal Polars::Datetime.new("us", "UTC"), pl_types["datetime_ns_tz"]
+
+      assert_equal Polars::List.new(Polars::Int32), pl_types["list"]
     end
   end
 
