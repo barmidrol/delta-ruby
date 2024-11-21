@@ -95,6 +95,7 @@ module DeltaLake
     def convert_data(data)
       if data.respond_to?(:arrow_c_stream)
         # TODO convert other object types
+        # should probably move logic to Rust
         if defined?(Polars::DataFrame) && data.is_a?(Polars::DataFrame)
           data = convert_polars_data(data)
         end
