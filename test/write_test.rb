@@ -125,7 +125,17 @@ class WriteTest < Minitest::Test
     end
   end
 
-  def test_unsigned
+  def test_time
+    with_new_table do |table_uri|
+      df = Polars::DataFrame.new({"a" => [1]}, schema: {"a" => Polars::Time})
+      error = assert_raises(DeltaLake::SchemaMismatchError) do
+        DeltaLake.write(table_uri, df)
+      end
+      assert_equal "Invalid data type for Delta Lake: Time64(Nanosecond)", error.message
+    end
+  end
+
+  def test_unsigned_integer
     with_new_table do |table_uri|
       df = Polars::DataFrame.new({"a" => [255]}, schema: {"a" => Polars::UInt8})
       error = assert_raises(Polars::InvalidOperationError) do
