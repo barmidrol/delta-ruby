@@ -91,6 +91,16 @@ class WriteTest < Minitest::Test
     end
   end
 
+  def test_unsigned
+    df = Polars::DataFrame.new({"a" => [2**64 - 1]})
+    with_table(df) do |dt|
+      error = assert_raises(RuntimeError) do
+        dt.delete("a < 0")
+      end
+      assert_match "Can't cast value 18446744073709551615 to type Int64", error.message
+    end
+  end
+
   def test_invalid_data
     with_new_table do |table_uri|
       error = assert_raises(TypeError) do
