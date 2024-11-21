@@ -94,9 +94,40 @@ module DeltaLake
 
     def convert_data(data)
       if data.respond_to?(:arrow_c_stream)
+        # TODO convert other object types
+        if defined?(Polars::DataFrame) && data.is_a?(Polars::DataFrame)
+          data = convert_polars_data(data)
+        end
+
         data.arrow_c_stream
       else
         raise TypeError, "Only objects implementing the Arrow C stream interface are valid inputs for source."
+      end
+    end
+
+    # unsigned integers are not part of the protocol
+    # https://github.com/delta-io/delta/blob/master/PROTOCOL.md#primitive-types
+    def convert_polars_data(data)
+      new_schema = {}
+      data.schema.each do |k, v|
+        new_type =
+          case v
+          when Polars::UInt8
+            Polars::Int8
+          when Polars::UInt16
+            Polars::Int16
+          when Polars::UInt32
+            Polars::Int32
+          when Polars::UInt64
+            Polars::Int64
+          end
+        new_schema[k] = new_type if new_type
+      end
+
+      if new_schema.any?
+        data.cast(new_schema)
+      else
+        data
       end
     end
   end

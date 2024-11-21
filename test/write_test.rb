@@ -68,10 +68,6 @@ class WriteTest < Minitest::Test
       assert_equal "integer", types["int32"]
       assert_equal "long", types["int64"]
 
-      # unsigned numbers are not part of the protocol
-      # https://github.com/delta-io/delta/blob/master/PROTOCOL.md#primitive-types
-      # https://github.com/delta-io/delta-rs/issues/1751
-      # https://github.com/delta-io/delta-rs/issues/2175
       assert_equal "byte", types["uint8"]
       assert_equal "short", types["uint16"]
       assert_equal "integer", types["uint32"]
@@ -87,17 +83,35 @@ class WriteTest < Minitest::Test
       # assert_equal "string", types["string"]
       # assert_equal "binary", types["binary"]
 
-      assert_equal schema, dt.to_polars.schema
+      pl_types = dt.to_polars.schema
+
+      assert_equal Polars::Int8, pl_types["int8"]
+      assert_equal Polars::Int16, pl_types["int16"]
+      assert_equal Polars::Int32, pl_types["int32"]
+      assert_equal Polars::Int64, pl_types["int64"]
+
+      # unsigned integers are converted to signed
+      assert_equal Polars::Int8, pl_types["uint8"]
+      assert_equal Polars::Int16, pl_types["uint16"]
+      assert_equal Polars::Int32, pl_types["uint32"]
+      assert_equal Polars::Int64, pl_types["uint64"]
+
+      assert_equal Polars::Float32, pl_types["float32"]
+      assert_equal Polars::Float64, pl_types["float64"]
+
+      assert_equal Polars::Decimal.new(38, 0), pl_types["decimal"]
+      assert_equal Polars::Boolean, pl_types["boolean"]
+      assert_equal Polars::Date, pl_types["date"]
     end
   end
 
   def test_unsigned
-    df = Polars::DataFrame.new({"a" => [2**64 - 1]})
-    with_table(df) do |dt|
-      error = assert_raises(RuntimeError) do
-        dt.delete("a < 0")
+    with_new_table do |table_uri|
+      df = Polars::DataFrame.new({"a" => [255]}, schema: {"a" => Polars::UInt8})
+      error = assert_raises(Polars::InvalidOperationError) do
+        DeltaLake.write(table_uri, df)
       end
-      assert_match "Can't cast value 18446744073709551615 to type Int64", error.message
+      assert_match "conversion from `u8` to `i8` failed", error.message
     end
   end
 
