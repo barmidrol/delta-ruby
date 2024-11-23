@@ -1510,6 +1510,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b12986bb181170e5bd15d6c49ed73488c444d7e9d5a08afcf37e7e69504f93ae"
 dependencies = [
  "deltalake-aws",
+ "deltalake-azure",
  "deltalake-core",
  "deltalake-gcp",
 ]
@@ -1540,6 +1541,25 @@ dependencies = [
  "tracing",
  "url",
  "uuid",
+]
+
+[[package]]
+name = "deltalake-azure"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b143541a5a3d02da940b1fc0a3522bd39b7f78400132e9739329b99cafc921db"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "deltalake-core",
+ "futures",
+ "lazy_static",
+ "object_store",
+ "regex",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "url",
 ]
 
 [[package]]

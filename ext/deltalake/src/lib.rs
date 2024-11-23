@@ -858,6 +858,7 @@ impl TryConvert for RbArrowType<ArrowArrayStreamReader> {
 #[magnus::init]
 fn init(ruby: &Ruby) -> RbResult<()> {
     deltalake::aws::register_handlers(None);
+    deltalake::azure::register_handlers(None);
     deltalake::gcp::register_handlers(None);
 
     let module = ruby.define_module("DeltaLake")?;
