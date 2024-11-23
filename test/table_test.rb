@@ -82,6 +82,8 @@ class TableTest < Minitest::Test
       DeltaLake.write(dt, df, mode: "append")
 
       cdf = dt.load_cdf(starting_version: 1, ending_version: 2)
+      assert_kind_of cdf, DeltaLake::ArrowArrayStream
+
       assert_equal 2, Polars::DataFrame.new(cdf).n_unique(subset: ["_commit_version"])
 
       error = assert_raises(ArgumentError) do
