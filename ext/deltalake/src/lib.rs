@@ -183,6 +183,18 @@ impl RawDeltaTable {
             .map_err(RubyError::from)?)
     }
 
+    pub fn get_latest_version(&self) -> RbResult<i64> {
+        Ok(rt()
+            .block_on(self._table.borrow().get_latest_version())
+            .map_err(RubyError::from)?)
+    }
+
+    pub fn get_earliest_version(&self) -> RbResult<i64> {
+        Ok(rt()
+            .block_on(self._table.borrow().get_earliest_version())
+            .map_err(RubyError::from)?)
+    }
+
     pub fn load_with_datetime(&self, ds: String) -> RbResult<()> {
         let datetime = DateTime::<Utc>::from(
             DateTime::<FixedOffset>::parse_from_rfc3339(&ds).map_err(|err| {
@@ -474,6 +486,16 @@ impl RawDeltaTable {
         Ok(serde_json::to_string(&metrics).unwrap())
     }
 
+    pub fn history(&self, limit: Option<usize>) -> RbResult<Vec<String>> {
+        let history = rt()
+            .block_on(self._table.borrow().history(limit))
+            .map_err(RubyError::from)?;
+        Ok(history
+            .iter()
+            .map(|c| serde_json::to_string(c).unwrap())
+            .collect())
+    }
+
     pub fn update_incremental(&self) -> RbResult<()> {
         #[allow(deprecated)]
         Ok(rt()
@@ -715,6 +737,14 @@ fn init(ruby: &Ruby) -> RbResult<()> {
     )?;
     class.define_method("load_version", method!(RawDeltaTable::load_version, 1))?;
     class.define_method(
+        "get_latest_version",
+        method!(RawDeltaTable::get_latest_version, 0),
+    )?;
+    class.define_method(
+        "get_earliest_version",
+        method!(RawDeltaTable::get_earliest_version, 0),
+    )?;
+    class.define_method(
         "load_with_datetime",
         method!(RawDeltaTable::load_with_datetime, 1),
     )?;
@@ -740,6 +770,7 @@ fn init(ruby: &Ruby) -> RbResult<()> {
     )?;
     class.define_method("load_cdf", method!(RawDeltaTable::load_cdf, 5))?;
     class.define_method("restore", method!(RawDeltaTable::restore, 3))?;
+    class.define_method("history", method!(RawDeltaTable::history, 1))?;
     class.define_method(
         "update_incremental",
         method!(RawDeltaTable::update_incremental, 0),

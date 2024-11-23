@@ -59,6 +59,17 @@ class TableTest < Minitest::Test
     end
   end
 
+  def test_history
+    df = Polars::DataFrame.new({"a" => [1, 2, 3]})
+    with_table(df) do |dt|
+      history = dt.history
+
+      assert_equal 1, history.size
+      assert_equal "WRITE", history[0]["operation"]
+      assert_equal 0, history[0]["version"]
+    end
+  end
+
   def test_delete
     df = Polars::DataFrame.new({"a" => [1, 2, 3]})
     with_table(df) do |dt|

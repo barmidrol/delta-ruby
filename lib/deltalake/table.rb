@@ -90,6 +90,25 @@ module DeltaLake
       ProtocolVersions.new(*@table.protocol_versions)
     end
 
+    def history(limit: nil)
+      backwards_enumerate = lambda do |iterable, start_end, &block|
+        n = start_end
+        iterable.each do |elem|
+          block.call(n, elem)
+          n -= 1
+        end
+      end
+
+      commits = @table.history(limit)
+      history = []
+      backwards_enumerate.(commits, @table.get_latest_version) do |version, commit_info_raw|
+        commit = JSON.parse(commit_info_raw)
+        commit["version"] = version
+        history << commit
+      end
+      history
+    end
+
     def vacuum(
       retention_hours: nil,
       dry_run: true,
