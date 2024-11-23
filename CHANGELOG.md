@@ -3,7 +3,7 @@
 - Added support for constraints
 - Added support for small file compaction
 - Added support for Z Ordering
-- Added `partitions`, `protocol`, and `repair` methods to `Table`
+- Added `partitions`, `protocol`, `repair`, and `restore` methods to `Table`
 - Fixed handling of unsigned integers
 - Fixed error with timestamps
 

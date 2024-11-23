@@ -22,6 +22,7 @@ use deltalake::operations::drop_constraints::DropConstraintBuilder;
 use deltalake::operations::filesystem_check::FileSystemCheckBuilder;
 use deltalake::operations::load_cdf::CdfLoadBuilder;
 use deltalake::operations::optimize::{OptimizeBuilder, OptimizeType};
+use deltalake::operations::restore::RestoreBuilder;
 use deltalake::operations::vacuum::VacuumBuilder;
 use deltalake::partitions::PartitionFilter;
 use deltalake::storage::IORuntime;
@@ -29,7 +30,9 @@ use deltalake::DeltaOps;
 use error::DeltaError;
 use futures::future::join_all;
 
-use magnus::{exception, function, method, prelude::*, Error, Module, RArray, RHash, Ruby, Value};
+use magnus::{
+    exception, function, method, prelude::*, Error, Integer, Module, RArray, RHash, Ruby, Value,
+};
 
 use crate::error::DeltaProtocolError;
 use crate::error::RubyError;
@@ -433,6 +436,44 @@ impl RawDeltaTable {
         Ok(ArrowArrayStream { stream: ffi_stream })
     }
 
+    pub fn restore(
+        &self,
+        target: Option<Value>,
+        ignore_missing_files: bool,
+        protocol_downgrade_allowed: bool,
+    ) -> RbResult<String> {
+        let mut cmd = RestoreBuilder::new(
+            self._table.borrow().log_store(),
+            self._table
+                .borrow()
+                .snapshot()
+                .map_err(RubyError::from)?
+                .clone(),
+        );
+        if let Some(val) = target {
+            if let Some(version) = Integer::from_value(val) {
+                cmd = cmd.with_version_to_restore(version.to_i64()?)
+            }
+            if let Ok(ds) = String::try_convert(val) {
+                let datetime = DateTime::<Utc>::from(
+                    DateTime::<FixedOffset>::parse_from_rfc3339(ds.as_ref()).map_err(|err| {
+                        Error::new(
+                            exception::arg_error(),
+                            format!("Failed to parse datetime string: {err}"),
+                        )
+                    })?,
+                );
+                cmd = cmd.with_datetime_to_restore(datetime)
+            }
+        }
+        cmd = cmd.with_ignore_missing_files(ignore_missing_files);
+        cmd = cmd.with_protocol_downgrade_allowed(protocol_downgrade_allowed);
+
+        let (table, metrics) = rt().block_on(cmd.into_future()).map_err(RubyError::from)?;
+        self._table.borrow_mut().state = table.state;
+        Ok(serde_json::to_string(&metrics).unwrap())
+    }
+
     pub fn update_incremental(&self) -> RbResult<()> {
         #[allow(deprecated)]
         Ok(rt()
@@ -698,6 +739,7 @@ fn init(ruby: &Ruby) -> RbResult<()> {
         method!(RawDeltaTable::drop_constraints, 2),
     )?;
     class.define_method("load_cdf", method!(RawDeltaTable::load_cdf, 5))?;
+    class.define_method("restore", method!(RawDeltaTable::restore, 3))?;
     class.define_method(
         "update_incremental",
         method!(RawDeltaTable::update_incremental, 0),

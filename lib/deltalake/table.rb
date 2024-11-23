@@ -116,6 +116,32 @@ module DeltaLake
       TableAlterer.new(self)
     end
 
+    def restore(
+      target,
+      ignore_missing_files: false,
+      protocol_downgrade_allowed: false
+    )
+      if target.is_a?(Time)
+        # needed for iso8601
+        require "time"
+
+        metrics =
+          @table.restore(
+            target.utc.iso8601(9),
+            ignore_missing_files,
+            protocol_downgrade_allowed
+          )
+      else
+        metrics =
+          @table.restore(
+            target,
+            ignore_missing_files,
+            protocol_downgrade_allowed
+          )
+      end
+      JSON.parse(metrics)
+    end
+
     def to_polars(eager: true)
       require "polars-df"
 

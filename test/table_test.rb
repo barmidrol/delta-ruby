@@ -113,6 +113,21 @@ class TableTest < Minitest::Test
     end
   end
 
+  def test_restore
+    df = Polars::DataFrame.new({"a" => [1, 2, 3]})
+    with_table(df) do |dt|
+      df2 = Polars::DataFrame.new({"a" => [4, 5, 6]})
+      DeltaLake.write(dt, df2, mode: "overwrite")
+
+      metrics = dt.restore(dt.version - 1)
+      assert_equal 1, metrics["numRemovedFile"]
+      assert_equal 1, metrics["numRestoredFile"]
+
+      assert_equal 2, dt.version
+      assert_equal df, dt.to_polars
+    end
+  end
+
   def test_missing
     with_new_table do |table_uri|
       error = assert_raises(DeltaLake::TableNotFoundError) do
