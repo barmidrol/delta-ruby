@@ -2,7 +2,7 @@
 
 - Added support for small file compaction
 - Added support for Z Ordering
-- Added `protocol` method to `Table`
+- Added `protocol` and `repair` methods to `Table`
 - Fixed handling of unsigned integers
 - Fixed error with timestamps
 

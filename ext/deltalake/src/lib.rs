@@ -12,6 +12,7 @@ use deltalake::arrow::ffi_stream::{ArrowArrayStreamReader, FFI_ArrowArrayStream}
 use deltalake::errors::DeltaTableError;
 use deltalake::kernel::{StructType, Transaction};
 use deltalake::operations::delete::DeleteBuilder;
+use deltalake::operations::filesystem_check::FileSystemCheckBuilder;
 use deltalake::operations::optimize::{OptimizeBuilder, OptimizeType};
 use deltalake::operations::vacuum::VacuumBuilder;
 use deltalake::partitions::PartitionFilter;
@@ -334,6 +335,22 @@ impl RawDeltaTable {
         Ok(serde_json::to_string(&metrics).unwrap())
     }
 
+    pub fn repair(&self, dry_run: bool) -> RbResult<String> {
+        let cmd = FileSystemCheckBuilder::new(
+            self._table.borrow().log_store(),
+            self._table
+                .borrow()
+                .snapshot()
+                .map_err(RubyError::from)?
+                .clone(),
+        )
+        .with_dry_run(dry_run);
+
+        let (table, metrics) = rt().block_on(cmd.into_future()).map_err(RubyError::from)?;
+        self._table.borrow_mut().state = table.state;
+        Ok(serde_json::to_string(&metrics).unwrap())
+    }
+
     pub fn transaction_versions(&self) -> RHash {
         RHash::from_iter(
             self._table
@@ -504,6 +521,7 @@ fn init(ruby: &Ruby) -> RbResult<()> {
         method!(RawDeltaTable::update_incremental, 0),
     )?;
     class.define_method("delete", method!(RawDeltaTable::delete, 1))?;
+    class.define_method("repair", method!(RawDeltaTable::repair, 1))?;
     class.define_method(
         "transaction_versions",
         method!(RawDeltaTable::transaction_versions, 0),

@@ -95,6 +95,15 @@ class TableTest < Minitest::Test
     end
   end
 
+  def test_repair
+    df = Polars::DataFrame.new({"a" => [1, 2, 3]})
+    with_table(df) do |dt|
+      metrics = dt.repair
+      assert_equal false, metrics["dry_run"]
+      assert_empty metrics["files_removed"]
+    end
+  end
+
   def test_missing
     with_new_table do |table_uri|
       error = assert_raises(DeltaLake::TableNotFoundError) do
