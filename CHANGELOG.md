@@ -4,6 +4,7 @@
 - Added support for small file compaction
 - Added support for Z Ordering
 - Added `history`, `partitions`, `protocol`, `repair`, and `restore` methods to `Table`
+- Added experimental `load_cdf` method to `Table`
 - Fixed handling of unsigned integers
 - Fixed error with timestamps
 
