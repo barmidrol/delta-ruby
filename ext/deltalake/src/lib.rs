@@ -10,7 +10,7 @@ use std::time;
 use chrono::{DateTime, Duration, FixedOffset, Utc};
 use deltalake::arrow::ffi_stream::{ArrowArrayStreamReader, FFI_ArrowArrayStream};
 use deltalake::errors::DeltaTableError;
-use deltalake::kernel::StructType;
+use deltalake::kernel::{StructType, Transaction};
 use deltalake::operations::delete::DeleteBuilder;
 use deltalake::operations::optimize::{OptimizeBuilder, OptimizeType};
 use deltalake::operations::vacuum::VacuumBuilder;
@@ -19,7 +19,7 @@ use deltalake::storage::IORuntime;
 use deltalake::DeltaOps;
 use error::DeltaError;
 
-use magnus::{exception, function, method, prelude::*, Error, Module, Ruby, Value};
+use magnus::{exception, function, method, prelude::*, Error, Module, RHash, Ruby, Value};
 
 use crate::error::RubyError;
 use crate::schema::{schema_to_rbobject, Field};
@@ -333,6 +333,16 @@ impl RawDeltaTable {
         self._table.borrow_mut().state = table.state;
         Ok(serde_json::to_string(&metrics).unwrap())
     }
+
+    pub fn transaction_versions(&self) -> RHash {
+        RHash::from_iter(
+            self._table
+                .borrow()
+                .get_app_transaction_version()
+                .into_iter()
+                .map(|(app_id, transaction)| (app_id, RbTransaction::from(transaction))),
+        )
+    }
 }
 
 fn convert_partition_filters(
@@ -364,6 +374,23 @@ impl RawDeltaTableMetaData {
 
     fn configuration(&self) -> HashMap<String, Option<String>> {
         self.configuration.clone()
+    }
+}
+
+#[magnus::wrap(class = "DeltaLake::Transaction")]
+pub struct RbTransaction {
+    pub app_id: String,
+    pub version: i64,
+    pub last_updated: Option<i64>,
+}
+
+impl From<Transaction> for RbTransaction {
+    fn from(value: Transaction) -> Self {
+        RbTransaction {
+            app_id: value.app_id,
+            version: value.version,
+            last_updated: value.last_updated,
+        }
     }
 }
 
@@ -477,6 +504,10 @@ fn init(ruby: &Ruby) -> RbResult<()> {
         method!(RawDeltaTable::update_incremental, 0),
     )?;
     class.define_method("delete", method!(RawDeltaTable::delete, 1))?;
+    class.define_method(
+        "transaction_versions",
+        method!(RawDeltaTable::transaction_versions, 0),
+    )?;
 
     let class = module.define_class("RawDeltaTableMetaData", ruby.class_object())?;
     class.define_method("id", method!(RawDeltaTableMetaData::id, 0))?;

@@ -31,6 +31,8 @@ class WriteTest < Minitest::Test
       assert_equal Polars.concat([df, df]), dt.to_polars
       assert_equal 2, dt.version
 
+      assert_empty dt.transaction_versions
+
       dt.load_as_version(dt.version - 1)
       assert_equal df, dt.to_polars
       assert_equal 1, dt.version

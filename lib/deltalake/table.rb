@@ -116,6 +116,10 @@ module DeltaLake
       JSON.parse(metrics).transform_keys(&:to_sym)
     end
 
+    def transaction_versions
+      @table.transaction_versions
+    end
+
     # private
     def _table
       @table
