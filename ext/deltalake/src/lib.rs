@@ -33,7 +33,8 @@ use error::DeltaError;
 use futures::future::join_all;
 
 use magnus::{
-    exception, function, method, prelude::*, Error, Integer, Module, RArray, RHash, Ruby, Value,
+    exception, function, method, prelude::*, Error, Integer, Module, RArray, RHash, Ruby,
+    TryConvert, Value,
 };
 
 use crate::error::DeltaProtocolError;
@@ -474,20 +475,12 @@ impl RawDeltaTable {
 
     pub fn create_merge_builder(
         &self,
-        source: Value,
+        source: RbArrowType<ArrowArrayStreamReader>,
         predicate: String,
         source_alias: Option<String>,
         target_alias: Option<String>,
         safe_cast: bool,
     ) -> RbResult<RbMergeBuilder> {
-        // use similar approach as Polars to avoid copy
-        let capsule_pointer: usize = source.funcall("to_i", ())?;
-        let stream_ptr = Box::new(unsafe {
-            std::ptr::replace(capsule_pointer as _, FFI_ArrowArrayStream::empty())
-        });
-        let stream = ArrowArrayStreamReader::try_new(*stream_ptr)
-            .map_err(|err| DeltaError::new_err(err.to_string()))?;
-
         Ok(RbMergeBuilder::new(
             self._table.borrow().log_store(),
             self._table
@@ -495,7 +488,7 @@ impl RawDeltaTable {
                 .snapshot()
                 .map_err(RubyError::from)?
                 .clone(),
-            stream,
+            source.0,
             predicate,
             source_alias,
             target_alias,
@@ -712,7 +705,7 @@ impl From<Transaction> for RbTransaction {
 #[allow(clippy::too_many_arguments)]
 fn write_to_deltalake(
     table_uri: String,
-    data: Value,
+    data: RbArrowType<ArrowArrayStreamReader>,
     mode: String,
     table: Option<&RawDeltaTable>,
     schema_mode: Option<String>,
@@ -724,15 +717,7 @@ fn write_to_deltalake(
     configuration: Option<HashMap<String, Option<String>>>,
     storage_options: Option<HashMap<String, String>>,
 ) -> RbResult<()> {
-    let capsule_pointer: usize = data.funcall("to_i", ())?;
-
-    // use similar approach as Polars to avoid copy
-    let stream_ptr =
-        Box::new(unsafe { std::ptr::replace(capsule_pointer as _, FFI_ArrowArrayStream::empty()) });
-    let stream = ArrowArrayStreamReader::try_new(*stream_ptr)
-        .map_err(|err| DeltaError::new_err(err.to_string()))?;
-
-    let batches = stream.map(|batch| batch.unwrap()).collect::<Vec<_>>();
+    let batches = data.0.map(|batch| batch.unwrap()).collect::<Vec<_>>();
     let save_mode = mode.parse().map_err(RubyError::from)?;
 
     let options = storage_options.clone().unwrap_or_default();
@@ -777,6 +762,24 @@ fn write_to_deltalake(
         .map_err(RubyError::from)?;
 
     Ok(())
+}
+
+pub struct RbArrowType<T>(pub T);
+
+impl TryConvert for RbArrowType<ArrowArrayStreamReader> {
+    fn try_convert(val: Value) -> RbResult<Self> {
+        let capsule_pointer: usize = val.funcall("to_i", ())?;
+
+        // use similar approach as Polars to avoid copy
+        let stream_ptr = Box::new(unsafe {
+            std::ptr::replace(capsule_pointer as _, FFI_ArrowArrayStream::empty())
+        });
+
+        Ok(RbArrowType(
+            ArrowArrayStreamReader::try_new(*stream_ptr)
+                .map_err(|err| DeltaError::new_err(err.to_string()))?,
+        ))
+    }
 }
 
 #[magnus::init]
