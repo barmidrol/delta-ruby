@@ -121,7 +121,7 @@ module DeltaLake
         @table.repair(
           dry_run
         )
-      JSON.parse(metrics)
+      JSON.parse(metrics).transform_keys(&:to_sym)
     end
 
     def transaction_versions
