@@ -54,4 +54,23 @@ class MergeTest < Minitest::Test
       assert_equal expected, dt.to_polars
     end
   end
+
+  def test_multiple
+    df = Polars::DataFrame.new({"x" => [1, 2, 3], "y" => [4, 5, 6]})
+    with_table(df) do |dt|
+      source = Polars::DataFrame.new({"x" => [2, 3, 5], "y" => [5, 8, 11]})
+
+      metrics =
+        dt.merge(source, "target.x = source.x", source_alias: "source", target_alias: "target")
+          .when_matched_delete(predicate: "source.x = target.x")
+          .when_matched_update({"x" => "source.x", "y" => "source.y"})
+          .execute
+      assert_equal 1, metrics[:num_output_rows]
+      assert_equal 1, metrics[:num_target_files_added]
+      assert_equal 1, metrics[:num_target_files_removed]
+
+      expected = Polars::DataFrame.new({"x" => [1], "y" => [4]})
+      assert_equal expected, dt.to_polars
+    end
+  end
 end
