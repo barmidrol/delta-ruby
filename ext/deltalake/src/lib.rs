@@ -12,6 +12,7 @@ use std::time;
 use chrono::{DateTime, Duration, FixedOffset, Utc};
 use deltalake::arrow::ffi_stream::{ArrowArrayStreamReader, FFI_ArrowArrayStream};
 use deltalake::arrow::record_batch::RecordBatchIterator;
+use deltalake::checkpoints::{cleanup_metadata, create_checkpoint};
 use deltalake::datafusion::physical_plan::ExecutionPlan;
 use deltalake::datafusion::prelude::SessionContext;
 use deltalake::errors::DeltaTableError;
@@ -601,6 +602,32 @@ impl RawDeltaTable {
         Ok(RArray::from_iter(active_partitions))
     }
 
+    pub fn create_checkpoint(&self) -> RbResult<()> {
+        rt().block_on(create_checkpoint(&self._table.borrow()))
+            .map_err(RubyError::from)?;
+
+        Ok(())
+    }
+
+    pub fn cleanup_metadata(&self) -> RbResult<()> {
+        rt().block_on(cleanup_metadata(&self._table.borrow()))
+            .map_err(RubyError::from)?;
+
+        Ok(())
+    }
+
+    pub fn get_add_file_sizes(&self) -> RbResult<HashMap<String, i64>> {
+        Ok(self
+            ._table
+            .borrow()
+            .snapshot()
+            .map_err(RubyError::from)?
+            .eager_snapshot()
+            .files()
+            .map(|f| (f.path().to_string(), f.size()))
+            .collect::<HashMap<String, i64>>())
+    }
+
     pub fn delete(&self, predicate: Option<String>) -> RbResult<String> {
         let mut cmd = DeleteBuilder::new(
             self._table.borrow().log_store(),
@@ -849,6 +876,18 @@ fn init(ruby: &Ruby) -> RbResult<()> {
     class.define_method(
         "get_active_partitions",
         method!(RawDeltaTable::get_active_partitions, 0),
+    )?;
+    class.define_method(
+        "create_checkpoint",
+        method!(RawDeltaTable::create_checkpoint, 0),
+    )?;
+    class.define_method(
+        "cleanup_metadata",
+        method!(RawDeltaTable::cleanup_metadata, 0),
+    )?;
+    class.define_method(
+        "get_add_file_sizes",
+        method!(RawDeltaTable::get_add_file_sizes, 0),
     )?;
     class.define_method("delete", method!(RawDeltaTable::delete, 1))?;
     class.define_method("repair", method!(RawDeltaTable::repair, 1))?;
