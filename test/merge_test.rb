@@ -10,9 +10,9 @@ class MergeTest < Minitest::Test
         dt.merge(source, "target.x = source.x", source_alias: "source", target_alias: "target")
           .when_matched_update({"x" => "source.x", "y" => "source.y"})
           .execute
-      assert_equal 3, metrics["num_output_rows"]
-      assert_equal 1, metrics["num_target_files_added"]
-      assert_equal 1, metrics["num_target_files_removed"]
+      assert_equal 3, metrics[:num_output_rows]
+      assert_equal 1, metrics[:num_target_files_added]
+      assert_equal 1, metrics[:num_target_files_removed]
 
       expected = Polars::DataFrame.new({"x" => [1, 2, 3], "y" => [4, 5, 8]})
       assert_equal expected, dt.to_polars
@@ -28,9 +28,9 @@ class MergeTest < Minitest::Test
         dt.merge(source, "target.x = source.x", source_alias: "source", target_alias: "target")
           .when_not_matched_insert({"x" => "source.x", "y" => "source.y"})
           .execute
-      assert_equal 1, metrics["num_output_rows"]
-      assert_equal 1, metrics["num_target_files_added"]
-      assert_equal 0, metrics["num_target_files_removed"]
+      assert_equal 1, metrics[:num_output_rows]
+      assert_equal 1, metrics[:num_target_files_added]
+      assert_equal 0, metrics[:num_target_files_removed]
 
       expected = Polars::DataFrame.new({"x" => [1, 2, 3, 7], "y" => [4, 5, 6, 8]})
       assert_equal expected, dt.to_polars
@@ -46,9 +46,9 @@ class MergeTest < Minitest::Test
         dt.merge(source, "target.x = source.x", source_alias: "source", target_alias: "target")
           .when_matched_delete(predicate: "source.deleted = true")
           .execute
-      assert_equal 2, metrics["num_output_rows"]
-      assert_equal 1, metrics["num_target_files_added"]
-      assert_equal 1, metrics["num_target_files_removed"]
+      assert_equal 2, metrics[:num_output_rows]
+      assert_equal 1, metrics[:num_target_files_added]
+      assert_equal 1, metrics[:num_target_files_removed]
 
       expected = Polars::DataFrame.new({"x" => [1, 2], "y" => [4, 5]})
       assert_equal expected, dt.to_polars

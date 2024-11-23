@@ -22,7 +22,7 @@ module DeltaLake
 
     def execute
       metrics = @table.merge_execute(@builder)
-      JSON.parse(metrics)
+      JSON.parse(metrics).transform_keys(&:to_sym)
     end
   end
 end
