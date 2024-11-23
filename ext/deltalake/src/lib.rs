@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::future::IntoFuture;
 use std::time;
 
-use chrono::Duration;
+use chrono::{DateTime, Duration, FixedOffset, Utc};
 use deltalake::arrow::ffi_stream::{ArrowArrayStreamReader, FFI_ArrowArrayStream};
 use deltalake::kernel::StructType;
 use deltalake::operations::delete::DeleteBuilder;
@@ -17,7 +17,7 @@ use deltalake::storage::IORuntime;
 use deltalake::DeltaOps;
 use error::DeltaError;
 
-use magnus::{function, method, prelude::*, Error, Module, Ruby, Value};
+use magnus::{exception, function, method, prelude::*, Error, Module, Ruby, Value};
 
 use crate::error::RubyError;
 use crate::schema::{schema_to_rbobject, Field};
@@ -152,6 +152,20 @@ impl RawDeltaTable {
     pub fn load_version(&self, version: i64) -> RbResult<()> {
         Ok(rt()
             .block_on(self._table.borrow_mut().load_version(version))
+            .map_err(RubyError::from)?)
+    }
+
+    pub fn load_with_datetime(&self, ds: String) -> RbResult<()> {
+        let datetime = DateTime::<Utc>::from(
+            DateTime::<FixedOffset>::parse_from_rfc3339(&ds).map_err(|err| {
+                Error::new(
+                    exception::arg_error(),
+                    format!("Failed to parse datetime string: {err}"),
+                )
+            })?,
+        );
+        Ok(rt()
+            .block_on(self._table.borrow_mut().load_with_datetime(datetime))
             .map_err(RubyError::from)?)
     }
 
@@ -412,6 +426,10 @@ fn init(ruby: &Ruby) -> RbResult<()> {
         method!(RawDeltaTable::protocol_versions, 0),
     )?;
     class.define_method("load_version", method!(RawDeltaTable::load_version, 1))?;
+    class.define_method(
+        "load_with_datetime",
+        method!(RawDeltaTable::load_with_datetime, 1),
+    )?;
     class.define_method("files", method!(RawDeltaTable::files, 0))?;
     class.define_method("file_uris", method!(RawDeltaTable::file_uris, 0))?;
     class.define_method("schema", method!(RawDeltaTable::schema, 0))?;

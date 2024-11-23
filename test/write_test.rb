@@ -19,6 +19,10 @@ class WriteTest < Minitest::Test
       assert_equal df, dt.to_polars
       assert_equal 1, dt.version
 
+      time = Time.now
+      # version timestamps are stored at ms precision
+      sleep(0.001)
+
       DeltaLake.write(dt, df, mode: "ignore")
       assert_equal df, dt.to_polars
       assert_equal 1, dt.version
@@ -28,6 +32,10 @@ class WriteTest < Minitest::Test
       assert_equal 2, dt.version
 
       dt.load_as_version(dt.version - 1)
+      assert_equal df, dt.to_polars
+      assert_equal 1, dt.version
+
+      dt.load_as_version(time)
       assert_equal df, dt.to_polars
       assert_equal 1, dt.version
 
