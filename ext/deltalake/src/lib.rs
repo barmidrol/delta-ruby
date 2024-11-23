@@ -1,4 +1,5 @@
 mod error;
+mod features;
 mod merge;
 mod schema;
 mod utils;
@@ -19,6 +20,7 @@ use deltalake::datafusion::prelude::SessionContext;
 use deltalake::errors::DeltaTableError;
 use deltalake::kernel::{scalars::ScalarExt, StructType, Transaction};
 use deltalake::operations::add_column::AddColumnBuilder;
+use deltalake::operations::add_feature::AddTableFeatureBuilder;
 use deltalake::operations::collect_sendable_stream;
 use deltalake::operations::constraints::ConstraintBuilder;
 use deltalake::operations::delete::DeleteBuilder;
@@ -43,6 +45,7 @@ use magnus::{
 use crate::error::DeltaProtocolError;
 use crate::error::RbValueError;
 use crate::error::RubyError;
+use crate::features::TableFeatures;
 use crate::merge::RbMergeBuilder;
 use crate::schema::{schema_to_rbobject, Field};
 use crate::utils::rt;
@@ -388,6 +391,31 @@ impl RawDeltaTable {
             .collect::<Vec<StructField>>();
 
         cmd = cmd.with_fields(new_fields);
+
+        let table = rt().block_on(cmd.into_future()).map_err(RubyError::from)?;
+        self._table.borrow_mut().state = table.state;
+        Ok(())
+    }
+
+    pub fn add_feature(
+        &self,
+        feature: RArray,
+        allow_protocol_versions_increase: bool,
+    ) -> RbResult<()> {
+        let feature = feature
+            .into_iter()
+            .map(|v| TableFeatures::try_convert(v))
+            .collect::<RbResult<Vec<_>>>()?;
+        let cmd = AddTableFeatureBuilder::new(
+            self._table.borrow().log_store(),
+            self._table
+                .borrow()
+                .snapshot()
+                .map_err(RubyError::from)?
+                .clone(),
+        )
+        .with_features(feature)
+        .with_allow_protocol_versions_increase(allow_protocol_versions_increase);
 
         let table = rt().block_on(cmd.into_future()).map_err(RubyError::from)?;
         self._table.borrow_mut().state = table.state;
@@ -880,6 +908,7 @@ fn init(ruby: &Ruby) -> RbResult<()> {
         method!(RawDeltaTable::z_order_optimize, 5),
     )?;
     class.define_method("add_columns", method!(RawDeltaTable::add_columns, 1))?;
+    class.define_method("add_feature", method!(RawDeltaTable::add_feature, 2))?;
     class.define_method(
         "add_constraints",
         method!(RawDeltaTable::add_constraints, 1),

@@ -1,6 +1,29 @@
 require_relative "test_helper"
 
 class AlterTest < Minitest::Test
+  def test_add_feature
+    df = Polars::DataFrame.new({"a" => [1, 2, 3]})
+    with_table(df) do |dt|
+      error = assert_raises(DeltaLake::Error) do
+        dt.alter.add_feature(:append_only)
+      end
+      assert_match "Table feature enables writer feature, but min_writer is not v7", error.message
+
+      dt.alter.add_feature(:append_only, allow_protocol_versions_increase: true)
+
+      protocol = dt.protocol
+      assert_equal 1, protocol.min_reader_version
+      assert_equal 7, protocol.min_writer_version
+      assert_equal ["appendOnly"], protocol.writer_features
+      assert_nil protocol.reader_features
+
+      error = assert_raises(ArgumentError) do
+        dt.alter.add_feature(:missing)
+      end
+      assert_equal "Invalid feature", error.message
+    end
+  end
+
   def test_add_columns
     df = Polars::DataFrame.new({"a" => [1, 2, 3]})
     with_table(df) do |dt|

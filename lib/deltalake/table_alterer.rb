@@ -4,6 +4,19 @@ module DeltaLake
       @table = table
     end
 
+    def add_feature(
+      feature,
+      allow_protocol_versions_increase: false
+    )
+      if !feature.is_a?(Array)
+        feature = [feature]
+      end
+      @table._table.add_feature(
+        feature,
+        allow_protocol_versions_increase
+      )
+    end
+
     def add_columns(fields)
       if fields.is_a?(DeltaLake::Field)
         fields = [fields]
