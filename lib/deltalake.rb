@@ -150,6 +150,11 @@ module DeltaLake
       when Polars::Array
         inner = convert_polars_type(t.inner)
         Polars::Array.new(t.inner, t.width) if inner
+      when Polars::Struct
+        if t.fields.any? { |f| convert_polars_type(f.dtype) }
+          fields = t.fields.map { |f| Polars::Field.new(f.name, convert_polars_type(f.dtype) || f.dtype) }
+          Polars::Struct.new(fields)
+        end
       end
     end
   end

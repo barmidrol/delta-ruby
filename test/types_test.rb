@@ -24,7 +24,8 @@ class TypesTest < Minitest::Test
       "datetime_ns_tz" => Polars::Datetime.new("ns", "UTC"),
       # "string" => Polars::String,
       # "binary" => Polars::Binary,
-      "list" => Polars::List.new(Polars::UInt32)
+      "list" => Polars::List.new(Polars::UInt32),
+      "struct" => Polars::Struct.new([Polars::Field.new("a", Polars::UInt32)])
     }
     row = {}
     schema.each_key do |k|
@@ -32,6 +33,8 @@ class TypesTest < Minitest::Test
         case k
         when "list"
           [1]
+        when "struct"
+          {"a" => 1}
         else
           1
         end
@@ -68,6 +71,7 @@ class TypesTest < Minitest::Test
       # assert_equal "binary", types["binary"]
 
       assert_equal "array<integer>", types["list"]
+      assert_equal "struct<a: integer>", types["struct"]
 
       pl_types = dt.to_polars.schema
 
@@ -97,6 +101,7 @@ class TypesTest < Minitest::Test
       assert_equal Polars::Datetime.new("us", "UTC"), pl_types["datetime_ns_tz"]
 
       assert_equal Polars::List.new(Polars::Int32), pl_types["list"]
+      assert_equal Polars::Struct.new([Polars::Field.new("a", Polars::Int32)]), pl_types["struct"]
     end
   end
 
