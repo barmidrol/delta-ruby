@@ -15,6 +15,11 @@ module DeltaLake
       self
     end
 
+    def when_matched_delete(predicate: nil)
+      @builder.when_matched_delete(predicate)
+      self
+    end
+
     def execute
       metrics = @table.merge_execute(@builder)
       JSON.parse(metrics)

@@ -28,4 +28,18 @@ class MergeTest < Minitest::Test
       assert_equal expected, dt.to_polars
     end
   end
+
+  def test_when_matched_delete
+    df = Polars::DataFrame.new({"x" => [1, 2, 3], "y" => [4, 5, 6]})
+    with_table(df) do |dt|
+      source = Polars::DataFrame.new({"x" => [2, 3], "deleted" => [false, true]})
+
+      dt.merge(source, "target.x = source.x", source_alias: "source", target_alias: "target")
+        .when_matched_delete(predicate: "source.deleted = true")
+        .execute
+
+      expected = Polars::DataFrame.new({"x" => [1, 2], "y" => [4, 5]})
+      assert_equal expected, dt.to_polars
+    end
+  end
 end

@@ -898,6 +898,10 @@ fn init(ruby: &Ruby) -> RbResult<()> {
         "when_not_matched_insert",
         method!(RbMergeBuilder::when_not_matched_insert, 2),
     )?;
+    class.define_method(
+        "when_matched_delete",
+        method!(RbMergeBuilder::when_matched_delete, 1),
+    )?;
 
     Ok(())
 }

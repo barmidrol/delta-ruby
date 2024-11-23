@@ -20,8 +20,11 @@ use crate::RbResult;
 #[magnus::wrap(class = "DeltaLake::RbMergeBuilder")]
 pub(crate) struct RbMergeBuilder {
     _builder: RefCell<Option<MergeBuilder>>,
+    #[allow(dead_code)]
     source_alias: Option<String>,
+    #[allow(dead_code)]
     target_alias: Option<String>,
+    #[allow(dead_code)]
     arrow_schema: Arc<ArrowSchema>,
 }
 
@@ -108,6 +111,23 @@ impl RbMergeBuilder {
                         insert = insert.predicate(predicate)
                     };
                     insert
+                })
+                .map_err(RubyError::from)?,
+            ),
+            None => unreachable!(),
+        };
+        Ok(())
+    }
+
+    pub fn when_matched_delete(&self, predicate: Option<String>) -> RbResult<()> {
+        let mut binding = self._builder.borrow_mut();
+        *binding = match binding.take() {
+            Some(cmd) => Some(
+                cmd.when_matched_delete(|mut delete| {
+                    if let Some(predicate) = predicate {
+                        delete = delete.predicate(predicate)
+                    };
+                    delete
                 })
                 .map_err(RubyError::from)?,
             ),
