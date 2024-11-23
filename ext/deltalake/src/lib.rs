@@ -890,6 +890,8 @@ fn init(ruby: &Ruby) -> RbResult<()> {
     class.define_method("nullable", method!(Field::nullable, 0))?;
 
     let class = module.define_class("RbMergeBuilder", ruby.class_object())?;
+    class.define_method("source_alias", method!(RbMergeBuilder::source_alias, 0))?;
+    class.define_method("target_alias", method!(RbMergeBuilder::target_alias, 0))?;
     class.define_method(
         "when_matched_update",
         method!(RbMergeBuilder::when_matched_update, 2),

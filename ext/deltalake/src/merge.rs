@@ -20,12 +20,21 @@ use crate::RbResult;
 #[magnus::wrap(class = "DeltaLake::RbMergeBuilder")]
 pub(crate) struct RbMergeBuilder {
     _builder: RefCell<Option<MergeBuilder>>,
-    #[allow(dead_code)]
     source_alias: Option<String>,
-    #[allow(dead_code)]
     target_alias: Option<String>,
     #[allow(dead_code)]
     arrow_schema: Arc<ArrowSchema>,
+}
+
+// getters
+impl RbMergeBuilder {
+    pub fn source_alias(&self) -> Option<String> {
+        self.source_alias.clone()
+    }
+
+    pub fn target_alias(&self) -> Option<String> {
+        self.target_alias.clone()
+    }
 }
 
 impl RbMergeBuilder {
