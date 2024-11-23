@@ -572,7 +572,7 @@ impl RawDeltaTable {
             })
             .collect();
 
-        Ok(RArray::from_iter(active_partitions.into_iter()))
+        Ok(RArray::from_iter(active_partitions))
     }
 
     pub fn delete(&self, predicate: Option<String>) -> RbResult<String> {
