@@ -902,6 +902,10 @@ fn init(ruby: &Ruby) -> RbResult<()> {
         "when_matched_delete",
         method!(RbMergeBuilder::when_matched_delete, 1),
     )?;
+    class.define_method(
+        "when_not_matched_by_source_update",
+        method!(RbMergeBuilder::when_not_matched_by_source_update, 2),
+    )?;
 
     Ok(())
 }

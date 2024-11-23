@@ -20,6 +20,11 @@ module DeltaLake
       self
     end
 
+    def when_not_matched_by_source_update(updates, predicate: nil)
+      @builder.when_not_matched_by_source_update(updates, predicate)
+      self
+    end
+
     def execute
       metrics = @table.merge_execute(@builder)
       JSON.parse(metrics).transform_keys(&:to_sym)

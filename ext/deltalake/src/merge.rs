@@ -135,4 +135,28 @@ impl RbMergeBuilder {
         };
         Ok(())
     }
+
+    pub fn when_not_matched_by_source_update(
+        &self,
+        updates: HashMap<String, String>,
+        predicate: Option<String>,
+    ) -> RbResult<()> {
+        let mut binding = self._builder.borrow_mut();
+        *binding = match binding.take() {
+            Some(cmd) => Some(
+                cmd.when_not_matched_by_source_update(|mut update| {
+                    for (column, expression) in updates {
+                        update = update.update(column, expression)
+                    }
+                    if let Some(predicate) = predicate {
+                        update = update.predicate(predicate)
+                    };
+                    update
+                })
+                .map_err(RubyError::from)?,
+            ),
+            None => unreachable!(),
+        };
+        Ok(())
+    }
 }
