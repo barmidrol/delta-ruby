@@ -26,6 +26,15 @@ module DeltaLake
       @table.version
     end
 
+    def partitions
+      partitions = []
+      @table.get_active_partitions.each do |partition|
+        next unless partition
+        partitions << partition.to_h
+      end
+      partitions
+    end
+
     def files(partition_filters: nil)
       @table.files(_stringify_partition_values(partition_filters))
     end

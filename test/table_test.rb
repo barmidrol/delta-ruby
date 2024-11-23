@@ -28,6 +28,11 @@ class TableTest < Minitest::Test
       # consistent with Python
       assert_kind_of Integer, metadata.created_time
       assert_empty metadata.configuration
+
+      partitions = dt.partitions
+      assert_equal 2, partitions.size
+      assert_includes partitions, {"b" => "4"}
+      assert_includes partitions, {"b" => "5"}
     end
   end
 

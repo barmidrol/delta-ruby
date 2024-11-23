@@ -3,14 +3,14 @@ mod schema;
 mod utils;
 
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::future::IntoFuture;
 use std::time;
 
 use chrono::{DateTime, Duration, FixedOffset, Utc};
 use deltalake::arrow::ffi_stream::{ArrowArrayStreamReader, FFI_ArrowArrayStream};
 use deltalake::errors::DeltaTableError;
-use deltalake::kernel::{StructType, Transaction};
+use deltalake::kernel::{scalars::ScalarExt, StructType, Transaction};
 use deltalake::operations::constraints::ConstraintBuilder;
 use deltalake::operations::delete::DeleteBuilder;
 use deltalake::operations::drop_constraints::DropConstraintBuilder;
@@ -22,8 +22,9 @@ use deltalake::storage::IORuntime;
 use deltalake::DeltaOps;
 use error::DeltaError;
 
-use magnus::{exception, function, method, prelude::*, Error, Module, RHash, Ruby, Value};
+use magnus::{exception, function, method, prelude::*, Error, Module, RArray, RHash, Ruby, Value};
 
+use crate::error::DeltaProtocolError;
 use crate::error::RubyError;
 use crate::schema::{schema_to_rbobject, Field};
 use crate::utils::rt;
@@ -355,6 +356,56 @@ impl RawDeltaTable {
             .map_err(RubyError::from)?)
     }
 
+    fn get_active_partitions(&self) -> RbResult<RArray> {
+        let binding = self._table.borrow();
+        let _column_names: HashSet<&str> = binding
+            .get_schema()
+            .map_err(|_| DeltaProtocolError::new_err("table does not yet have a schema"))?
+            .fields()
+            .map(|field| field.name().as_str())
+            .collect();
+        let partition_columns: HashSet<&str> = binding
+            .metadata()
+            .map_err(RubyError::from)?
+            .partition_columns
+            .iter()
+            .map(|col| col.as_str())
+            .collect();
+
+        let converted_filters = Vec::new();
+
+        let partition_columns: Vec<&str> = partition_columns.into_iter().collect();
+
+        let adds = binding
+            .snapshot()
+            .map_err(RubyError::from)?
+            .get_active_add_actions_by_partitions(&converted_filters)
+            .map_err(RubyError::from)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(RubyError::from)?;
+        let active_partitions: HashSet<Vec<(&str, Option<String>)>> = adds
+            .iter()
+            .flat_map(|add| {
+                Ok::<_, RubyError>(
+                    partition_columns
+                        .iter()
+                        .flat_map(|col| {
+                            Ok::<_, RubyError>((
+                                *col,
+                                add.partition_values()
+                                    .map_err(RubyError::from)?
+                                    .get(*col)
+                                    .map(|v| v.serialize()),
+                            ))
+                        })
+                        .collect(),
+                )
+            })
+            .collect();
+
+        Ok(RArray::from_iter(active_partitions.into_iter()))
+    }
+
     pub fn delete(&self, predicate: Option<String>) -> RbResult<String> {
         let mut cmd = DeleteBuilder::new(
             self._table.borrow().log_store(),
@@ -565,6 +616,10 @@ fn init(ruby: &Ruby) -> RbResult<()> {
     class.define_method(
         "update_incremental",
         method!(RawDeltaTable::update_incremental, 0),
+    )?;
+    class.define_method(
+        "get_active_partitions",
+        method!(RawDeltaTable::get_active_partitions, 0),
     )?;
     class.define_method("delete", method!(RawDeltaTable::delete, 1))?;
     class.define_method("repair", method!(RawDeltaTable::repair, 1))?;
