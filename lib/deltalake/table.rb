@@ -139,12 +139,7 @@ module DeltaLake
       target_alias: nil,
       error_on_type_mismatch: true
     )
-      # TODO call convert_data instead?
-      if source.respond_to?(:arrow_c_stream)
-        source = source.arrow_c_stream
-      else
-        raise TypeError, "Only objects implementing the Arrow C stream interface are valid inputs for source."
-      end
+      source = Utils.convert_data(source)
 
       rb_merge_builder =
         @table.create_merge_builder(
