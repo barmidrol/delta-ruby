@@ -70,6 +70,8 @@ class TableTest < Minitest::Test
       assert_equal 1, history[0]["version"]
       assert_equal "WRITE", history[1]["operation"]
       assert_equal 0, history[1]["version"]
+
+      assert_equal 1, dt.history(limit: 1).size
     end
   end
 
