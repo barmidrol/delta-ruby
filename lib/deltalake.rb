@@ -41,6 +41,12 @@ module DeltaLake
       :reader_features
     )
 
+  class ArrowArrayStream
+    def arrow_c_stream
+      self
+    end
+  end
+
   class << self
     def write(
       table_or_uri,
