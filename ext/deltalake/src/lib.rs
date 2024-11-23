@@ -842,11 +842,11 @@ pub struct RbArrowType<T>(pub T);
 
 impl TryConvert for RbArrowType<ArrowArrayStreamReader> {
     fn try_convert(val: Value) -> RbResult<Self> {
-        let capsule_pointer: usize = val.funcall("to_i", ())?;
+        let addr: usize = val.funcall("to_i", ())?;
 
         // use similar approach as Polars to avoid copy
         let stream_ptr = Box::new(unsafe {
-            std::ptr::replace(capsule_pointer as _, FFI_ArrowArrayStream::empty())
+            std::ptr::replace(addr as _, FFI_ArrowArrayStream::empty())
         });
 
         Ok(RbArrowType(
