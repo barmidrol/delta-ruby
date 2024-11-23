@@ -16,7 +16,12 @@ module DeltaLake
           min_commit_interval
         )
       @table.update_incremental
-      JSON.parse(metrics)
+      result = JSON.parse(metrics)
+      ["filesAdded", "filesRemoved"].each do |key|
+        result[key] = JSON.parse(result[key]) if result[key].is_a?(String)
+      end
+      # TODO return underscore symbols like delete
+      result
     end
   end
 end
