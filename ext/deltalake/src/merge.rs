@@ -95,6 +95,23 @@ impl RbMergeBuilder {
         Ok(())
     }
 
+    pub fn when_matched_delete(&self, predicate: Option<String>) -> RbResult<()> {
+        let mut binding = self._builder.borrow_mut();
+        *binding = match binding.take() {
+            Some(cmd) => Some(
+                cmd.when_matched_delete(|mut delete| {
+                    if let Some(predicate) = predicate {
+                        delete = delete.predicate(predicate)
+                    };
+                    delete
+                })
+                .map_err(RubyError::from)?,
+            ),
+            None => unreachable!(),
+        };
+        Ok(())
+    }
+
     pub fn when_not_matched_insert(
         &self,
         updates: HashMap<String, String>,
@@ -119,23 +136,6 @@ impl RbMergeBuilder {
         Ok(())
     }
 
-    pub fn when_matched_delete(&self, predicate: Option<String>) -> RbResult<()> {
-        let mut binding = self._builder.borrow_mut();
-        *binding = match binding.take() {
-            Some(cmd) => Some(
-                cmd.when_matched_delete(|mut delete| {
-                    if let Some(predicate) = predicate {
-                        delete = delete.predicate(predicate)
-                    };
-                    delete
-                })
-                .map_err(RubyError::from)?,
-            ),
-            None => unreachable!(),
-        };
-        Ok(())
-    }
-
     pub fn when_not_matched_by_source_update(
         &self,
         updates: HashMap<String, String>,
@@ -152,6 +152,23 @@ impl RbMergeBuilder {
                         update = update.predicate(predicate)
                     };
                     update
+                })
+                .map_err(RubyError::from)?,
+            ),
+            None => unreachable!(),
+        };
+        Ok(())
+    }
+
+    pub fn when_not_matched_by_source_delete(&self, predicate: Option<String>) -> RbResult<()> {
+        let mut binding = self._builder.borrow_mut();
+        *binding = match binding.take() {
+            Some(cmd) => Some(
+                cmd.when_not_matched_by_source_delete(|mut delete| {
+                    if let Some(predicate) = predicate {
+                        delete = delete.predicate(predicate)
+                    };
+                    delete
                 })
                 .map_err(RubyError::from)?,
             ),
