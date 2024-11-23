@@ -1,3 +1,7 @@
+## 0.1.2 (unreleased)
+
+- Added `merge` method to `Table`
+
 ## 0.1.1 (2024-11-22)
 
 - Added support for constraints

@@ -15,6 +15,7 @@ require_relative "deltalake/metadata"
 require_relative "deltalake/schema"
 require_relative "deltalake/table"
 require_relative "deltalake/table_alterer"
+require_relative "deltalake/table_merger"
 require_relative "deltalake/table_optimizer"
 require_relative "deltalake/version"
 

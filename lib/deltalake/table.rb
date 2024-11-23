@@ -132,6 +132,31 @@ module DeltaLake
       TableAlterer.new(self)
     end
 
+    def merge(
+      source,
+      predicate,
+      source_alias: nil,
+      target_alias: nil,
+      error_on_type_mismatch: true
+    )
+      # TODO call convert_data instead?
+      if source.respond_to?(:arrow_c_stream)
+        source = source.arrow_c_stream
+      else
+        raise TypeError, "Only objects implementing the Arrow C stream interface are valid inputs for source."
+      end
+
+      rb_merge_builder =
+        @table.create_merge_builder(
+          source,
+          predicate,
+          source_alias,
+          target_alias,
+          !error_on_type_mismatch
+        )
+      TableMerger.new(rb_merge_builder, @table)
+    end
+
     def restore(
       target,
       ignore_missing_files: false,

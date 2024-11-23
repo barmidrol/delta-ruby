@@ -1,4 +1,5 @@
 mod error;
+mod merge;
 mod schema;
 mod utils;
 
@@ -37,6 +38,7 @@ use magnus::{
 
 use crate::error::DeltaProtocolError;
 use crate::error::RubyError;
+use crate::merge::RbMergeBuilder;
 use crate::schema::{schema_to_rbobject, Field};
 use crate::utils::rt;
 
@@ -470,6 +472,44 @@ impl RawDeltaTable {
         Ok(ArrowArrayStream { stream: ffi_stream })
     }
 
+    pub fn create_merge_builder(
+        &self,
+        source: Value,
+        predicate: String,
+        source_alias: Option<String>,
+        target_alias: Option<String>,
+        safe_cast: bool,
+    ) -> RbResult<RbMergeBuilder> {
+        // use similar approach as Polars to avoid copy
+        let capsule_pointer: usize = source.funcall("to_i", ())?;
+        let stream_ptr = Box::new(unsafe {
+            std::ptr::replace(capsule_pointer as _, FFI_ArrowArrayStream::empty())
+        });
+        let stream = ArrowArrayStreamReader::try_new(*stream_ptr)
+            .map_err(|err| DeltaError::new_err(err.to_string()))?;
+
+        Ok(RbMergeBuilder::new(
+            self._table.borrow().log_store(),
+            self._table
+                .borrow()
+                .snapshot()
+                .map_err(RubyError::from)?
+                .clone(),
+            stream,
+            predicate,
+            source_alias,
+            target_alias,
+            safe_cast,
+        )
+        .map_err(RubyError::from)?)
+    }
+
+    pub fn merge_execute(&self, merge_builder: &RbMergeBuilder) -> RbResult<String> {
+        let (table, metrics) = merge_builder.execute().map_err(RubyError::from)?;
+        self._table.borrow_mut().state = table.state;
+        Ok(metrics)
+    }
+
     pub fn restore(
         &self,
         target: Option<Value>,
@@ -799,6 +839,11 @@ fn init(ruby: &Ruby) -> RbResult<()> {
         method!(RawDeltaTable::drop_constraints, 2),
     )?;
     class.define_method("load_cdf", method!(RawDeltaTable::load_cdf, 5))?;
+    class.define_method(
+        "create_merge_builder",
+        method!(RawDeltaTable::create_merge_builder, 5),
+    )?;
+    class.define_method("merge_execute", method!(RawDeltaTable::merge_execute, 1))?;
     class.define_method("restore", method!(RawDeltaTable::restore, 3))?;
     class.define_method("history", method!(RawDeltaTable::history, 1))?;
     class.define_method(
@@ -843,6 +888,12 @@ fn init(ruby: &Ruby) -> RbResult<()> {
     class.define_method("name", method!(Field::name, 0))?;
     class.define_method("type", method!(Field::get_type, 0))?;
     class.define_method("nullable", method!(Field::nullable, 0))?;
+
+    let class = module.define_class("RbMergeBuilder", ruby.class_object())?;
+    class.define_method(
+        "when_matched_update",
+        method!(RbMergeBuilder::when_matched_update, 2),
+    )?;
 
     Ok(())
 }
