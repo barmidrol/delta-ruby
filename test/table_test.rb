@@ -75,6 +75,22 @@ class TableTest < Minitest::Test
     end
   end
 
+  def test_load_cdf
+    df = Polars::DataFrame.new({"a" => [1, 2, 3]})
+    with_table(df) do |dt|
+      DeltaLake.write(dt, df, mode: "overwrite")
+      DeltaLake.write(dt, df, mode: "append")
+
+      cdf = dt.load_cdf(starting_version: 1, ending_version: 2)
+      assert_equal 2, Polars::DataFrame.new(cdf).n_unique(subset: ["_commit_version"])
+
+      error = assert_raises(ArgumentError) do
+        Polars::DataFrame.new(cdf)
+      end
+      assert_equal "the C stream was already released", error.message
+    end
+  end
+
   def test_delete
     df = Polars::DataFrame.new({"a" => [1, 2, 3]})
     with_table(df) do |dt|
