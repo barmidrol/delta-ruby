@@ -31,6 +31,17 @@ class TableTest < Minitest::Test
     end
   end
 
+  def test_protocol
+    df = Polars::DataFrame.new({"a" => [1, 2, 3]})
+    with_table(df) do |dt|
+      protocol = dt.protocol
+      assert_equal 1, protocol.min_reader_version
+      assert_equal 2, protocol.min_writer_version
+      assert_nil protocol.reader_features
+      assert_nil protocol.writer_features
+    end
+  end
+
   def test_schema
     df = Polars::DataFrame.new({"a" => [1, 2, 3]})
     with_table(df) do |dt|

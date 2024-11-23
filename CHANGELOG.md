@@ -1,5 +1,6 @@
 ## 0.1.1 (unreleased)
 
+- Added `protocol` method to `Table`
 - Fixed handling of unsigned integers
 - Fixed error with timestamps
 

@@ -54,6 +54,10 @@ module DeltaLake
       Metadata.new(@table)
     end
 
+    def protocol
+      ProtocolVersions.new(*@table.protocol_versions)
+    end
+
     def vacuum(
       retention_hours: nil,
       dry_run: true,

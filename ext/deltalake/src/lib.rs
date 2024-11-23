@@ -22,6 +22,7 @@ use crate::schema::{schema_to_rbobject, Field};
 use crate::utils::rt;
 
 type RbResult<T> = Result<T, Error>;
+type StringVec = Vec<String>;
 
 #[magnus::wrap(class = "DeltaLake::RawDeltaTable")]
 struct RawDeltaTable {
@@ -111,6 +112,39 @@ impl RawDeltaTable {
             created_time: metadata.created_time,
             configuration: metadata.configuration.clone(),
         })
+    }
+
+    pub fn protocol_versions(&self) -> RbResult<(i32, i32, Option<StringVec>, Option<StringVec>)> {
+        let binding = self._table.borrow();
+        let table_protocol = binding.protocol().map_err(RubyError::from)?;
+        Ok((
+            table_protocol.min_reader_version,
+            table_protocol.min_writer_version,
+            table_protocol
+                .writer_features
+                .as_ref()
+                .and_then(|features| {
+                    let empty_set = !features.is_empty();
+                    empty_set.then(|| {
+                        features
+                            .iter()
+                            .map(|v| v.to_string())
+                            .collect::<Vec<String>>()
+                    })
+                }),
+            table_protocol
+                .reader_features
+                .as_ref()
+                .and_then(|features| {
+                    let empty_set = !features.is_empty();
+                    empty_set.then(|| {
+                        features
+                            .iter()
+                            .map(|v| v.to_string())
+                            .collect::<Vec<String>>()
+                    })
+                }),
+        ))
     }
 
     pub fn load_version(&self, version: i64) -> RbResult<()> {
@@ -313,6 +347,10 @@ fn init(ruby: &Ruby) -> RbResult<()> {
     class.define_method("version", method!(RawDeltaTable::version, 0))?;
     class.define_method("has_files", method!(RawDeltaTable::has_files, 0))?;
     class.define_method("metadata", method!(RawDeltaTable::metadata, 0))?;
+    class.define_method(
+        "protocol_versions",
+        method!(RawDeltaTable::protocol_versions, 0),
+    )?;
     class.define_method("load_version", method!(RawDeltaTable::load_version, 1))?;
     class.define_method("files", method!(RawDeltaTable::files, 0))?;
     class.define_method("file_uris", method!(RawDeltaTable::file_uris, 0))?;

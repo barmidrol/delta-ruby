@@ -22,6 +22,14 @@ module DeltaLake
   class CommitFailedError < Error; end
   class SchemaMismatchError < Error; end
 
+  ProtocolVersions =
+    Struct.new(
+      :min_reader_version,
+      :min_writer_version,
+      :writer_features,
+      :reader_features
+    )
+
   class << self
     def write(
       table_or_uri,
