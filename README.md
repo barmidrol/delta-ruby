@@ -50,6 +50,12 @@ Overwrite a table
 DeltaLake.write("./data/delta", df, mode: "overwrite")
 ```
 
+Add a constraint [unreleased]
+
+```ruby
+dt.alter.add_constraint({"a_gt_0" => "a > 0"})
+```
+
 Delete rows
 
 ```ruby

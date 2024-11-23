@@ -11,6 +11,7 @@ use chrono::{DateTime, Duration, FixedOffset, Utc};
 use deltalake::arrow::ffi_stream::{ArrowArrayStreamReader, FFI_ArrowArrayStream};
 use deltalake::errors::DeltaTableError;
 use deltalake::kernel::{StructType, Transaction};
+use deltalake::operations::constraints::ConstraintBuilder;
 use deltalake::operations::delete::DeleteBuilder;
 use deltalake::operations::filesystem_check::FileSystemCheckBuilder;
 use deltalake::operations::optimize::{OptimizeBuilder, OptimizeType};
@@ -310,6 +311,25 @@ impl RawDeltaTable {
         Ok(serde_json::to_string(&metrics).unwrap())
     }
 
+    pub fn add_constraints(&self, constraints: HashMap<String, String>) -> RbResult<()> {
+        let mut cmd = ConstraintBuilder::new(
+            self._table.borrow().log_store(),
+            self._table
+                .borrow()
+                .snapshot()
+                .map_err(RubyError::from)?
+                .clone(),
+        );
+
+        for (col_name, expression) in constraints {
+            cmd = cmd.with_constraint(col_name.clone(), expression.clone());
+        }
+
+        let table = rt().block_on(cmd.into_future()).map_err(RubyError::from)?;
+        self._table.borrow_mut().state = table.state;
+        Ok(())
+    }
+
     pub fn update_incremental(&self) -> RbResult<()> {
         #[allow(deprecated)]
         Ok(rt()
@@ -515,6 +535,10 @@ fn init(ruby: &Ruby) -> RbResult<()> {
     class.define_method(
         "z_order_optimize",
         method!(RawDeltaTable::z_order_optimize, 5),
+    )?;
+    class.define_method(
+        "add_constraints",
+        method!(RawDeltaTable::add_constraints, 1),
     )?;
     class.define_method(
         "update_incremental",

@@ -87,6 +87,10 @@ module DeltaLake
       TableOptimizer.new(self)
     end
 
+    def alter
+      TableAlterer.new(self)
+    end
+
     def to_polars(eager: true)
       require "polars-df"
 
