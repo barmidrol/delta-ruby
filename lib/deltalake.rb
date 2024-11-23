@@ -7,6 +7,7 @@ end
 
 # stdlib
 require "json"
+require "time"
 
 # modules
 require_relative "deltalake/field"

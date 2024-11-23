@@ -47,9 +47,6 @@ module DeltaLake
       if version.is_a?(Integer)
         @table.load_version(version)
       elsif version.is_a?(Time)
-        # needed for iso8601
-        require "time"
-
         @table.load_with_datetime(version.utc.iso8601(9))
       elsif version.is_a?(String)
         @table.load_with_datetime(version)
@@ -141,9 +138,6 @@ module DeltaLake
       protocol_downgrade_allowed: false
     )
       if target.is_a?(Time)
-        # needed for iso8601
-        require "time"
-
         metrics =
           @table.restore(
             target.utc.iso8601(9),
