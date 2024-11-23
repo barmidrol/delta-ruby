@@ -5,9 +5,13 @@ module DeltaLake
       @table = table
     end
 
-    # TODO avoid updating in-place?
     def when_matched_update(updates, predicate: nil)
       @builder.when_matched_update(updates, predicate)
+      self
+    end
+
+    def when_not_matched_insert(updates, predicate: nil)
+      @builder.when_not_matched_insert(updates, predicate)
       self
     end
 
