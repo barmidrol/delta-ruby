@@ -33,11 +33,11 @@ use error::DeltaError;
 use futures::future::join_all;
 
 use magnus::{
-    exception, function, method, prelude::*, Error, Integer, Module, RArray, RHash, Ruby,
-    TryConvert, Value,
+    function, method, prelude::*, Error, Integer, Module, RArray, RHash, Ruby, TryConvert, Value,
 };
 
 use crate::error::DeltaProtocolError;
+use crate::error::RbValueError;
 use crate::error::RubyError;
 use crate::merge::RbMergeBuilder;
 use crate::schema::{schema_to_rbobject, Field};
@@ -221,14 +221,10 @@ impl RawDeltaTable {
     }
 
     pub fn load_with_datetime(&self, ds: String) -> RbResult<()> {
-        let datetime = DateTime::<Utc>::from(
-            DateTime::<FixedOffset>::parse_from_rfc3339(&ds).map_err(|err| {
-                Error::new(
-                    exception::arg_error(),
-                    format!("Failed to parse datetime string: {err}"),
-                )
-            })?,
-        );
+        let datetime =
+            DateTime::<Utc>::from(DateTime::<FixedOffset>::parse_from_rfc3339(&ds).map_err(
+                |err| RbValueError::new_err(format!("Failed to parse datetime string: {err}")),
+            )?);
         Ok(rt()
             .block_on(self._table.borrow_mut().load_with_datetime(datetime))
             .map_err(RubyError::from)?)
@@ -431,13 +427,13 @@ impl RawDeltaTable {
         }
         if let Some(st) = starting_timestamp {
             let starting_ts: DateTime<Utc> = DateTime::<Utc>::from_str(&st)
-                .map_err(|pe| Error::new(exception::arg_error(), pe.to_string()))?
+                .map_err(|pe| RbValueError::new_err(pe.to_string()))?
                 .to_utc();
             cdf_read = cdf_read.with_starting_timestamp(starting_ts);
         }
         if let Some(et) = ending_timestamp {
             let ending_ts = DateTime::<Utc>::from_str(&et)
-                .map_err(|pe| Error::new(exception::arg_error(), pe.to_string()))?
+                .map_err(|pe| RbValueError::new_err(pe.to_string()))?
                 .to_utc();
             cdf_read = cdf_read.with_starting_timestamp(ending_ts);
         }
@@ -524,10 +520,7 @@ impl RawDeltaTable {
             if let Ok(ds) = String::try_convert(val) {
                 let datetime = DateTime::<Utc>::from(
                     DateTime::<FixedOffset>::parse_from_rfc3339(ds.as_ref()).map_err(|err| {
-                        Error::new(
-                            exception::arg_error(),
-                            format!("Failed to parse datetime string: {err}"),
-                        )
+                        RbValueError::new_err(format!("Failed to parse datetime string: {err}"))
                     })?,
                 );
                 cmd = cmd.with_datetime_to_restore(datetime)

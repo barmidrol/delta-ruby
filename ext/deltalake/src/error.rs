@@ -96,3 +96,20 @@ impl From<RubyError> for Error {
         }
     }
 }
+
+macro_rules! create_builtin_exception {
+    ($type:ident, $class:expr) => {
+        pub struct $type {}
+
+        impl $type {
+            pub fn new_err<T>(message: T) -> Error
+            where
+                T: Into<Cow<'static, str>>,
+            {
+                Error::new($class, message)
+            }
+        }
+    };
+}
+
+create_builtin_exception!(RbValueError, exception::arg_error());
