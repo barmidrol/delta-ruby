@@ -106,6 +106,12 @@ Get metadata
 dt.metadata
 ```
 
+Get history [unreleased]
+
+```ruby
+dt.history
+```
+
 ## API
 
 This library follows the [Delta Lake Python API](https://delta-io.github.io/delta-rs/) (with a few changes to make it more Ruby-like). You can follow Python tutorials and convert the code to Ruby in many cases. Feel free to open an issue if you run into problems.
