@@ -33,7 +33,7 @@ class WriteTest < Minitest::Test
       assert_empty dt.transaction_versions
 
       cdf = dt.load_cdf(starting_version: 1, ending_version: 2)
-      assert Polars::DataFrame.new(cdf)
+      assert_equal 2, Polars::DataFrame.new(cdf).n_unique(subset: ["_commit_version"])
 
       dt.load_as_version(dt.version - 1)
       assert_equal 1, dt.version
