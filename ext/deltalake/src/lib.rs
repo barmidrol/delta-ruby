@@ -844,7 +844,7 @@ impl TryConvert for RbArrowType<ArrowArrayStreamReader> {
     fn try_convert(val: Value) -> RbResult<Self> {
         let addr: usize = val.funcall("to_i", ())?;
 
-        // use similar approach as Polars to avoid copy
+        // use similar approach as Polars to consume pointer and avoid copy
         let stream_ptr = Box::new(unsafe {
             std::ptr::replace(addr as _, FFI_ArrowArrayStream::empty())
         });
