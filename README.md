@@ -50,13 +50,13 @@ Overwrite a table
 DeltaLake.write("./data/delta", df, mode: "overwrite")
 ```
 
-Add a constraint [unreleased]
+Add a constraint
 
 ```ruby
 dt.alter.add_constraint({"a_gt_0" => "a > 0"})
 ```
 
-Drop a constraint [unreleased]
+Drop a constraint
 
 ```ruby
 dt.alter.drop_constraint("a_gt_0")
@@ -74,13 +74,13 @@ Vacuum
 dt.vacuum(dry_run: false)
 ```
 
-Perform small file compaction [unreleased]
+Perform small file compaction
 
 ```ruby
 dt.optimize.compact
 ```
 
-Colocate similar data in the same files [unreleased]
+Colocate similar data in the same files
 
 ```ruby
 dt.optimize.z_order(["a"])
@@ -106,7 +106,7 @@ Get metadata
 dt.metadata
 ```
 
-Get history [unreleased]
+Get history
 
 ```ruby
 dt.history

@@ -1,4 +1,4 @@
-## 0.1.1 (unreleased)
+## 0.1.1 (2024-11-22)
 
 - Added support for constraints
 - Added support for small file compaction
