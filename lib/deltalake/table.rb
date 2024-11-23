@@ -213,7 +213,7 @@ module DeltaLake
         return partition_filters
       end
 
-      raise "todo"
+      raise Todo
     end
   end
 end

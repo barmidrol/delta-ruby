@@ -24,6 +24,12 @@ module DeltaLake
   class CommitFailedError < Error; end
   class SchemaMismatchError < Error; end
 
+  class Todo < Error
+    def message
+      "not implemented yet"
+    end
+  end
+
   ProtocolVersions =
     Struct.new(
       :min_reader_version,
