@@ -95,6 +95,22 @@ class TableTest < Minitest::Test
     end
   end
 
+  def test_compact
+    df = Polars::DataFrame.new({"a" => [1, 2, 3]})
+    with_table(df) do |dt|
+      metrics = dt.optimize.compact
+      assert_equal 0, metrics["numFilesAdded"]
+      assert_equal 0, metrics["numFilesRemoved"]
+      assert_equal 0, metrics["partitionsOptimized"]
+      assert_equal %!{"avg":0.0,"max":0,"min":0,"totalFiles":0,"totalSize":0}!, metrics["filesAdded"]
+      assert_equal %!{"avg":0.0,"max":0,"min":0,"totalFiles":0,"totalSize":0}!, metrics["filesRemoved"]
+      assert_equal 0, metrics["numBatches"]
+      assert_equal 1, metrics["totalConsideredFiles"]
+      assert_equal 1, metrics["totalFilesSkipped"]
+      assert_equal true, metrics["preserveInsertionOrder"]
+    end
+  end
+
   def test_missing
     with_new_table do |table_uri|
       error = assert_raises(DeltaLake::TableNotFoundError) do

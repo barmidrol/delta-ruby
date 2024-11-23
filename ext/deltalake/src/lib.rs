@@ -5,11 +5,13 @@ mod utils;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::future::IntoFuture;
+use std::time;
 
 use chrono::Duration;
 use deltalake::arrow::ffi_stream::{ArrowArrayStreamReader, FFI_ArrowArrayStream};
 use deltalake::kernel::StructType;
 use deltalake::operations::delete::DeleteBuilder;
+use deltalake::operations::optimize::OptimizeBuilder;
 use deltalake::operations::vacuum::VacuumBuilder;
 use deltalake::storage::IORuntime;
 use deltalake::DeltaOps;
@@ -211,6 +213,34 @@ impl RawDeltaTable {
         Ok(metrics.files_deleted)
     }
 
+    #[allow(clippy::too_many_arguments)]
+    pub fn compact_optimize(
+        &self,
+        target_size: Option<i64>,
+        max_concurrent_tasks: Option<usize>,
+        min_commit_interval: Option<u64>,
+    ) -> RbResult<String> {
+        let mut cmd = OptimizeBuilder::new(
+            self._table.borrow().log_store(),
+            self._table
+                .borrow()
+                .snapshot()
+                .map_err(RubyError::from)?
+                .clone(),
+        )
+        .with_max_concurrent_tasks(max_concurrent_tasks.unwrap_or_else(num_cpus::get));
+        if let Some(size) = target_size {
+            cmd = cmd.with_target_size(size);
+        }
+        if let Some(commit_interval) = min_commit_interval {
+            cmd = cmd.with_min_commit_interval(time::Duration::from_secs(commit_interval));
+        }
+
+        let (table, metrics) = rt().block_on(cmd.into_future()).map_err(RubyError::from)?;
+        self._table.borrow_mut().state = table.state;
+        Ok(serde_json::to_string(&metrics).unwrap())
+    }
+
     pub fn update_incremental(&self) -> RbResult<()> {
         #[allow(deprecated)]
         Ok(rt()
@@ -356,6 +386,10 @@ fn init(ruby: &Ruby) -> RbResult<()> {
     class.define_method("file_uris", method!(RawDeltaTable::file_uris, 0))?;
     class.define_method("schema", method!(RawDeltaTable::schema, 0))?;
     class.define_method("vacuum", method!(RawDeltaTable::vacuum, 3))?;
+    class.define_method(
+        "compact_optimize",
+        method!(RawDeltaTable::compact_optimize, 3),
+    )?;
     class.define_method(
         "update_incremental",
         method!(RawDeltaTable::update_incremental, 0),

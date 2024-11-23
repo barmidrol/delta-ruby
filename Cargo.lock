@@ -1495,6 +1495,7 @@ dependencies = [
  "chrono",
  "deltalake 0.21.0",
  "magnus",
+ "num_cpus",
  "serde",
  "serde_json",
  "tokio",

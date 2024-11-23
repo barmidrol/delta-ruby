@@ -62,6 +62,12 @@ Vacuum
 dt.vacuum(dry_run: false)
 ```
 
+Perform small file compaction [unreleased]
+
+```ruby
+dt.optimize.compact
+```
+
 Load a previous version of a table
 
 ```ruby
