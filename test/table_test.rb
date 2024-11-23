@@ -98,6 +98,10 @@ class TableTest < Minitest::Test
   def test_repair
     df = Polars::DataFrame.new({"a" => [1, 2, 3]})
     with_table(df) do |dt|
+      metrics = dt.repair(dry_run: true)
+      assert_equal true, metrics[:dry_run]
+      assert_empty metrics[:files_removed]
+
       metrics = dt.repair
       assert_equal false, metrics[:dry_run]
       assert_empty metrics[:files_removed]
