@@ -845,9 +845,8 @@ impl TryConvert for RbArrowType<ArrowArrayStreamReader> {
         let addr: usize = val.funcall("to_i", ())?;
 
         // use similar approach as Polars to consume pointer and avoid copy
-        let stream_ptr = Box::new(unsafe {
-            std::ptr::replace(addr as _, FFI_ArrowArrayStream::empty())
-        });
+        let stream_ptr =
+            Box::new(unsafe { std::ptr::replace(addr as _, FFI_ArrowArrayStream::empty()) });
 
         Ok(RbArrowType(
             ArrowArrayStreamReader::try_new(*stream_ptr)
@@ -859,6 +858,7 @@ impl TryConvert for RbArrowType<ArrowArrayStreamReader> {
 #[magnus::init]
 fn init(ruby: &Ruby) -> RbResult<()> {
     deltalake::aws::register_handlers(None);
+    deltalake::gcp::register_handlers(None);
 
     let module = ruby.define_module("DeltaLake")?;
     module.define_singleton_method("write_deltalake_rust", function!(write_to_deltalake, 12))?;
