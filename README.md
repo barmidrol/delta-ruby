@@ -56,6 +56,12 @@ Add a constraint [unreleased]
 dt.alter.add_constraint({"a_gt_0" => "a > 0"})
 ```
 
+Drop a constraint [unreleased]
+
+```ruby
+dt.alter.drop_constraint("a_gt_0")
+```
+
 Delete rows
 
 ```ruby

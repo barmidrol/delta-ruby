@@ -13,6 +13,7 @@ use deltalake::errors::DeltaTableError;
 use deltalake::kernel::{StructType, Transaction};
 use deltalake::operations::constraints::ConstraintBuilder;
 use deltalake::operations::delete::DeleteBuilder;
+use deltalake::operations::drop_constraints::DropConstraintBuilder;
 use deltalake::operations::filesystem_check::FileSystemCheckBuilder;
 use deltalake::operations::optimize::{OptimizeBuilder, OptimizeType};
 use deltalake::operations::vacuum::VacuumBuilder;
@@ -330,6 +331,23 @@ impl RawDeltaTable {
         Ok(())
     }
 
+    pub fn drop_constraints(&self, name: String, raise_if_not_exists: bool) -> RbResult<()> {
+        let cmd = DropConstraintBuilder::new(
+            self._table.borrow().log_store(),
+            self._table
+                .borrow()
+                .snapshot()
+                .map_err(RubyError::from)?
+                .clone(),
+        )
+        .with_constraint(name)
+        .with_raise_if_not_exists(raise_if_not_exists);
+
+        let table = rt().block_on(cmd.into_future()).map_err(RubyError::from)?;
+        self._table.borrow_mut().state = table.state;
+        Ok(())
+    }
+
     pub fn update_incremental(&self) -> RbResult<()> {
         #[allow(deprecated)]
         Ok(rt()
@@ -539,6 +557,10 @@ fn init(ruby: &Ruby) -> RbResult<()> {
     class.define_method(
         "add_constraints",
         method!(RawDeltaTable::add_constraints, 1),
+    )?;
+    class.define_method(
+        "drop_constraints",
+        method!(RawDeltaTable::drop_constraints, 2),
     )?;
     class.define_method(
         "update_incremental",

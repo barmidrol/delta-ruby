@@ -14,5 +14,12 @@ module DeltaLake
         constraints
       )
     end
+
+    def drop_constraint(name, raise_if_not_exists: true)
+      @table._table.drop_constraints(
+        name,
+        raise_if_not_exists
+      )
+    end
   end
 end
