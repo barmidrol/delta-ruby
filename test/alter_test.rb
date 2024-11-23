@@ -1,6 +1,16 @@
 require_relative "test_helper"
 
 class AlterTest < Minitest::Test
+  def test_add_columns
+    df = Polars::DataFrame.new({"a" => [1, 2, 3]})
+    with_table(df) do |dt|
+      # TODO improve
+      dt.alter.add_columns([])
+
+      assert_equal 1, dt.schema.fields.size
+    end
+  end
+
   def test_add_constraint
     df = Polars::DataFrame.new({"a" => [1, 2, 3]})
     with_table(df) do |dt|

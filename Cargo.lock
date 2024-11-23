@@ -1493,6 +1493,7 @@ dependencies = [
  "arrow",
  "arrow-schema",
  "chrono",
+ "delta_kernel",
  "deltalake 0.21.0",
  "futures",
  "magnus",

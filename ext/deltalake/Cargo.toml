@@ -14,6 +14,7 @@ crate-type = ["cdylib"]
 arrow = { version = "52", features = ["ffi"] }
 arrow-schema = { version = "52", features = ["serde"] }
 chrono = "0.4"
+delta_kernel = "0.3"
 deltalake = { version = "=0.21.0", features = ["datafusion", "s3"] }
 futures = "0.3"
 magnus = "0.7"

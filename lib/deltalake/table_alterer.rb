@@ -4,6 +4,16 @@ module DeltaLake
       @table = table
     end
 
+    def add_columns(fields)
+      if fields.is_a?(DeltaLake::Field)
+        fields = [fields]
+      end
+
+      @table._table.add_columns(
+        fields
+      )
+    end
+
     def add_constraint(constraints)
       if constraints.length > 1
         raise ArgumentError,

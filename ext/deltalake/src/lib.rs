@@ -10,6 +10,7 @@ use std::str::FromStr;
 use std::time;
 
 use chrono::{DateTime, Duration, FixedOffset, Utc};
+use delta_kernel::schema::StructField;
 use deltalake::arrow::ffi_stream::{ArrowArrayStreamReader, FFI_ArrowArrayStream};
 use deltalake::arrow::record_batch::RecordBatchIterator;
 use deltalake::checkpoints::{cleanup_metadata, create_checkpoint};
@@ -17,6 +18,7 @@ use deltalake::datafusion::physical_plan::ExecutionPlan;
 use deltalake::datafusion::prelude::SessionContext;
 use deltalake::errors::DeltaTableError;
 use deltalake::kernel::{scalars::ScalarExt, StructType, Transaction};
+use deltalake::operations::add_column::AddColumnBuilder;
 use deltalake::operations::collect_sendable_stream;
 use deltalake::operations::constraints::ConstraintBuilder;
 use deltalake::operations::delete::DeleteBuilder;
@@ -34,7 +36,8 @@ use error::DeltaError;
 use futures::future::join_all;
 
 use magnus::{
-    function, method, prelude::*, Error, Integer, Module, RArray, RHash, Ruby, TryConvert, Value,
+    function, method, prelude::*, typed_data::Obj, Error, Integer, Module, RArray, RHash, Ruby,
+    TryConvert, Value,
 };
 
 use crate::error::DeltaProtocolError;
@@ -366,6 +369,29 @@ impl RawDeltaTable {
         let (table, metrics) = rt().block_on(cmd.into_future()).map_err(RubyError::from)?;
         self._table.borrow_mut().state = table.state;
         Ok(serde_json::to_string(&metrics).unwrap())
+    }
+
+    pub fn add_columns(&self, fields: RArray) -> RbResult<()> {
+        let fields = fields.typecheck::<Obj<Field>>()?;
+        let mut cmd = AddColumnBuilder::new(
+            self._table.borrow().log_store(),
+            self._table
+                .borrow()
+                .snapshot()
+                .map_err(RubyError::from)?
+                .clone(),
+        );
+
+        let new_fields = fields
+            .iter()
+            .map(|v| v.inner.clone())
+            .collect::<Vec<StructField>>();
+
+        cmd = cmd.with_fields(new_fields);
+
+        let table = rt().block_on(cmd.into_future()).map_err(RubyError::from)?;
+        self._table.borrow_mut().state = table.state;
+        Ok(())
     }
 
     pub fn add_constraints(&self, constraints: HashMap<String, String>) -> RbResult<()> {
@@ -853,6 +879,7 @@ fn init(ruby: &Ruby) -> RbResult<()> {
         "z_order_optimize",
         method!(RawDeltaTable::z_order_optimize, 5),
     )?;
+    class.define_method("add_columns", method!(RawDeltaTable::add_columns, 1))?;
     class.define_method(
         "add_constraints",
         method!(RawDeltaTable::add_constraints, 1),
