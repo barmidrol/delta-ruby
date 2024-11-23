@@ -58,6 +58,22 @@ module DeltaLake
       end
     end
 
+    def load_cdf(
+      starting_version: 0,
+      ending_version: nil,
+      starting_timestamp: nil,
+      ending_timestamp: nil,
+      columns: nil
+    )
+      @table.load_cdf(
+        starting_version,
+        ending_version,
+        starting_timestamp,
+        ending_timestamp,
+        columns
+      )
+    end
+
     def table_uri
       @table.table_uri
     end

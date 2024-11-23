@@ -1494,6 +1494,7 @@ dependencies = [
  "arrow-schema",
  "chrono",
  "deltalake 0.21.0",
+ "futures",
  "magnus",
  "num_cpus",
  "serde",

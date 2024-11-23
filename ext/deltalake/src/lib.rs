@@ -5,22 +5,29 @@ mod utils;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::future::IntoFuture;
+use std::str::FromStr;
 use std::time;
 
 use chrono::{DateTime, Duration, FixedOffset, Utc};
 use deltalake::arrow::ffi_stream::{ArrowArrayStreamReader, FFI_ArrowArrayStream};
+use deltalake::arrow::record_batch::RecordBatchIterator;
+use deltalake::datafusion::physical_plan::ExecutionPlan;
+use deltalake::datafusion::prelude::SessionContext;
 use deltalake::errors::DeltaTableError;
 use deltalake::kernel::{scalars::ScalarExt, StructType, Transaction};
+use deltalake::operations::collect_sendable_stream;
 use deltalake::operations::constraints::ConstraintBuilder;
 use deltalake::operations::delete::DeleteBuilder;
 use deltalake::operations::drop_constraints::DropConstraintBuilder;
 use deltalake::operations::filesystem_check::FileSystemCheckBuilder;
+use deltalake::operations::load_cdf::CdfLoadBuilder;
 use deltalake::operations::optimize::{OptimizeBuilder, OptimizeType};
 use deltalake::operations::vacuum::VacuumBuilder;
 use deltalake::partitions::PartitionFilter;
 use deltalake::storage::IORuntime;
 use deltalake::DeltaOps;
 use error::DeltaError;
+use futures::future::join_all;
 
 use magnus::{exception, function, method, prelude::*, Error, Module, RArray, RHash, Ruby, Value};
 
@@ -44,6 +51,17 @@ struct RawDeltaTableMetaData {
     partition_columns: Vec<String>,
     created_time: Option<i64>,
     configuration: HashMap<String, Option<String>>,
+}
+
+#[magnus::wrap(class = "DeltaLake::ArrowArrayStream")]
+pub struct ArrowArrayStream {
+    stream: FFI_ArrowArrayStream,
+}
+
+impl ArrowArrayStream {
+    pub fn to_i(&self) -> usize {
+        (&self.stream as *const _) as usize
+    }
 }
 
 type StringVec = Vec<String>;
@@ -349,6 +367,72 @@ impl RawDeltaTable {
         Ok(())
     }
 
+    pub fn load_cdf(
+        &self,
+        starting_version: i64,
+        ending_version: Option<i64>,
+        starting_timestamp: Option<String>,
+        ending_timestamp: Option<String>,
+        columns: Option<Vec<String>>,
+    ) -> RbResult<ArrowArrayStream> {
+        let ctx = SessionContext::new();
+        let mut cdf_read = CdfLoadBuilder::new(
+            self._table.borrow().log_store(),
+            self._table
+                .borrow()
+                .snapshot()
+                .map_err(RubyError::from)?
+                .clone(),
+        )
+        .with_starting_version(starting_version);
+
+        if let Some(ev) = ending_version {
+            cdf_read = cdf_read.with_ending_version(ev);
+        }
+        if let Some(st) = starting_timestamp {
+            let starting_ts: DateTime<Utc> = DateTime::<Utc>::from_str(&st)
+                .map_err(|pe| Error::new(exception::arg_error(), pe.to_string()))?
+                .to_utc();
+            cdf_read = cdf_read.with_starting_timestamp(starting_ts);
+        }
+        if let Some(et) = ending_timestamp {
+            let ending_ts = DateTime::<Utc>::from_str(&et)
+                .map_err(|pe| Error::new(exception::arg_error(), pe.to_string()))?
+                .to_utc();
+            cdf_read = cdf_read.with_starting_timestamp(ending_ts);
+        }
+
+        if let Some(columns) = columns {
+            cdf_read = cdf_read.with_columns(columns);
+        }
+
+        cdf_read = cdf_read.with_session_ctx(ctx.clone());
+
+        let plan = rt().block_on(cdf_read.build()).map_err(RubyError::from)?;
+
+        let mut tasks = vec![];
+        for p in 0..plan.properties().output_partitioning().partition_count() {
+            let inner_plan = plan.clone();
+            let partition_batch = inner_plan.execute(p, ctx.task_ctx()).unwrap();
+            let handle = rt().spawn(collect_sendable_stream(partition_batch));
+            tasks.push(handle);
+        }
+
+        // This is unfortunate.
+        let batches = rt()
+            .block_on(join_all(tasks))
+            .into_iter()
+            .flatten()
+            .collect::<Result<Vec<Vec<_>>, _>>()
+            .unwrap()
+            .into_iter()
+            .flatten()
+            .map(Ok);
+        let batch_iter = RecordBatchIterator::new(batches, plan.schema());
+        let ffi_stream = FFI_ArrowArrayStream::new(Box::new(batch_iter));
+        Ok(ArrowArrayStream { stream: ffi_stream })
+    }
+
     pub fn update_incremental(&self) -> RbResult<()> {
         #[allow(deprecated)]
         Ok(rt()
@@ -613,6 +697,7 @@ fn init(ruby: &Ruby) -> RbResult<()> {
         "drop_constraints",
         method!(RawDeltaTable::drop_constraints, 2),
     )?;
+    class.define_method("load_cdf", method!(RawDeltaTable::load_cdf, 5))?;
     class.define_method(
         "update_incremental",
         method!(RawDeltaTable::update_incremental, 0),
@@ -647,6 +732,9 @@ fn init(ruby: &Ruby) -> RbResult<()> {
         "configuration",
         method!(RawDeltaTableMetaData::configuration, 0),
     )?;
+
+    let class = module.define_class("ArrowArrayStream", ruby.class_object())?;
+    class.define_method("to_i", method!(ArrowArrayStream::to_i, 0))?;
 
     let class = module.define_class("Field", ruby.class_object())?;
     class.define_method("name", method!(Field::name, 0))?;
