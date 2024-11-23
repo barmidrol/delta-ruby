@@ -68,6 +68,12 @@ Perform small file compaction [unreleased]
 dt.optimize.compact
 ```
 
+Colocate similar data in the same files [unreleased]
+
+```ruby
+dt.optimize.z_order(["a"])
+```
+
 Load a previous version of a table
 
 ```ruby
