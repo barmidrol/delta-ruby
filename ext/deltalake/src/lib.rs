@@ -23,6 +23,7 @@ use deltalake::operations::filesystem_check::FileSystemCheckBuilder;
 use deltalake::operations::load_cdf::CdfLoadBuilder;
 use deltalake::operations::optimize::{OptimizeBuilder, OptimizeType};
 use deltalake::operations::restore::RestoreBuilder;
+use deltalake::operations::transaction::TableReference;
 use deltalake::operations::vacuum::VacuumBuilder;
 use deltalake::partitions::PartitionFilter;
 use deltalake::storage::IORuntime;
@@ -193,6 +194,27 @@ impl RawDeltaTable {
         Ok(rt()
             .block_on(self._table.borrow().get_earliest_version())
             .map_err(RubyError::from)?)
+    }
+
+    pub fn get_num_index_cols(&self) -> RbResult<i32> {
+        Ok(self
+            ._table
+            .borrow()
+            .snapshot()
+            .map_err(RubyError::from)?
+            .config()
+            .num_indexed_cols())
+    }
+
+    pub fn get_stats_columns(&self) -> RbResult<Option<Vec<String>>> {
+        Ok(self
+            ._table
+            .borrow()
+            .snapshot()
+            .map_err(RubyError::from)?
+            .config()
+            .stats_columns()
+            .map(|v| v.iter().map(|v| v.to_string()).collect::<Vec<String>>()))
     }
 
     pub fn load_with_datetime(&self, ds: String) -> RbResult<()> {
@@ -743,6 +765,14 @@ fn init(ruby: &Ruby) -> RbResult<()> {
     class.define_method(
         "get_earliest_version",
         method!(RawDeltaTable::get_earliest_version, 0),
+    )?;
+    class.define_method(
+        "get_num_index_cols",
+        method!(RawDeltaTable::get_num_index_cols, 0),
+    )?;
+    class.define_method(
+        "get_stats_columns",
+        method!(RawDeltaTable::get_stats_columns, 0),
     )?;
     class.define_method(
         "load_with_datetime",
