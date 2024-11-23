@@ -26,12 +26,12 @@ module DeltaLake
       @table.version
     end
 
-    def files
-      @table.files
+    def files(partition_filters: nil)
+      @table.files(_stringify_partition_values(partition_filters))
     end
 
-    def file_uris
-      @table.file_uris
+    def file_uris(partition_filters: nil)
+      @table.file_uris(_stringify_partition_values(partition_filters))
     end
 
     def load_as_version(version)
@@ -119,6 +119,15 @@ module DeltaLake
     # private
     def _table
       @table
+    end
+
+    # private
+    def _stringify_partition_values(partition_filters)
+      if partition_filters.nil?
+        return partition_filters
+      end
+
+      raise "todo"
     end
   end
 end

@@ -9,10 +9,12 @@ use std::time;
 
 use chrono::{DateTime, Duration, FixedOffset, Utc};
 use deltalake::arrow::ffi_stream::{ArrowArrayStreamReader, FFI_ArrowArrayStream};
+use deltalake::errors::DeltaTableError;
 use deltalake::kernel::StructType;
 use deltalake::operations::delete::DeleteBuilder;
 use deltalake::operations::optimize::{OptimizeBuilder, OptimizeType};
 use deltalake::operations::vacuum::VacuumBuilder;
+use deltalake::partitions::PartitionFilter;
 use deltalake::storage::IORuntime;
 use deltalake::DeltaOps;
 use error::DeltaError;
@@ -24,7 +26,6 @@ use crate::schema::{schema_to_rbobject, Field};
 use crate::utils::rt;
 
 type RbResult<T> = Result<T, Error>;
-type StringVec = Vec<String>;
 
 #[magnus::wrap(class = "DeltaLake::RawDeltaTable")]
 struct RawDeltaTable {
@@ -40,6 +41,8 @@ struct RawDeltaTableMetaData {
     created_time: Option<i64>,
     configuration: HashMap<String, Option<String>>,
 }
+
+type StringVec = Vec<String>;
 
 impl RawDeltaTable {
     pub fn new(
@@ -169,31 +172,52 @@ impl RawDeltaTable {
             .map_err(RubyError::from)?)
     }
 
-    pub fn files(&self) -> RbResult<Vec<String>> {
+    pub fn files(&self, partition_filters: Option<Value>) -> RbResult<Vec<String>> {
         if !self.has_files()? {
             return Err(DeltaError::new_err("Table is instantiated without files."));
         }
 
-        Ok(self
-            ._table
-            .borrow()
-            .get_files_iter()
-            .map_err(RubyError::from)?
-            .map(|f| f.to_string())
-            .collect())
+        if let Some(filters) = partition_filters {
+            let filters = convert_partition_filters(filters).map_err(RubyError::from)?;
+            Ok(self
+                ._table
+                .borrow()
+                .get_files_by_partitions(&filters)
+                .map_err(RubyError::from)?
+                .into_iter()
+                .map(|p| p.to_string())
+                .collect())
+        } else {
+            Ok(self
+                ._table
+                .borrow()
+                .get_files_iter()
+                .map_err(RubyError::from)?
+                .map(|f| f.to_string())
+                .collect())
+        }
     }
 
-    pub fn file_uris(&self) -> RbResult<Vec<String>> {
+    pub fn file_uris(&self, partition_filters: Option<Value>) -> RbResult<Vec<String>> {
         if !self._table.borrow().config.require_files {
             return Err(DeltaError::new_err("Table is initiated without files."));
         }
 
-        Ok(self
-            ._table
-            .borrow()
-            .get_file_uris()
-            .map_err(RubyError::from)?
-            .collect())
+        if let Some(filters) = partition_filters {
+            let filters = convert_partition_filters(filters).map_err(RubyError::from)?;
+            Ok(self
+                ._table
+                .borrow()
+                .get_file_uris_by_partitions(&filters)
+                .map_err(RubyError::from)?)
+        } else {
+            Ok(self
+                ._table
+                .borrow()
+                .get_file_uris()
+                .map_err(RubyError::from)?
+                .collect())
+        }
     }
 
     pub fn schema(&self) -> RbResult<Value> {
@@ -309,6 +333,12 @@ impl RawDeltaTable {
         self._table.borrow_mut().state = table.state;
         Ok(serde_json::to_string(&metrics).unwrap())
     }
+}
+
+fn convert_partition_filters(
+    _partitions_filters: Value,
+) -> Result<Vec<PartitionFilter>, DeltaTableError> {
+    todo!()
 }
 
 impl RawDeltaTableMetaData {
@@ -430,8 +460,8 @@ fn init(ruby: &Ruby) -> RbResult<()> {
         "load_with_datetime",
         method!(RawDeltaTable::load_with_datetime, 1),
     )?;
-    class.define_method("files", method!(RawDeltaTable::files, 0))?;
-    class.define_method("file_uris", method!(RawDeltaTable::file_uris, 0))?;
+    class.define_method("files", method!(RawDeltaTable::files, 1))?;
+    class.define_method("file_uris", method!(RawDeltaTable::file_uris, 1))?;
     class.define_method("schema", method!(RawDeltaTable::schema, 0))?;
     class.define_method("vacuum", method!(RawDeltaTable::vacuum, 3))?;
     class.define_method(
