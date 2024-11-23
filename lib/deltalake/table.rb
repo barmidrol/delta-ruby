@@ -91,10 +91,10 @@ module DeltaLake
           delta_keys = [
             "AWS_S3_ALLOW_UNSAFE_RENAME",
             "AWS_S3_LOCKING_PROVIDER",
-            "DELTA_DYNAMO_TABLE_NAME",
-            "conditional_put"
+            "CONDITIONAL_PUT",
+            "DELTA_DYNAMO_TABLE_NAME"
           ]
-          storage_options = @storage_options&.except(*delta_keys)
+          storage_options = @storage_options&.reject { |k, _| delta_keys.include?(k.to_s.upcase) }
           Polars.scan_parquet(sources, storage_options: storage_options)
         end
       eager ? lf.collect : lf
