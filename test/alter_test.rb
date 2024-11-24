@@ -81,6 +81,8 @@ class AlterTest < Minitest::Test
     with_table(df) do |dt|
       dt.alter.set_table_properties({"delta.enableChangeDataFeed" => "true"})
 
+      assert_equal "true", dt.metadata.configuration["delta.enableChangeDataFeed"]
+
       error = assert_raises(DeltaLake::Error) do
         dt.alter.set_table_properties({"missing" => "true"})
       end
