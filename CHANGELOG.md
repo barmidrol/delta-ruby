@@ -1,5 +1,6 @@
 ## 0.1.2 (unreleased)
 
+- Updated `deltalake` to 0.22.0
 - Added `merge` method to `Table`
 - Added `set_table_properties` method
 
