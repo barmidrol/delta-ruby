@@ -228,10 +228,16 @@ module DeltaLake
       JSON.parse(metrics).transform_keys(&:to_sym)
     end
 
-    def repair(dry_run: false)
+    def repair(
+      dry_run: false,
+      post_commithook_properties: nil,
+      commit_properties: nil
+    )
       metrics =
         @table.repair(
-          dry_run
+          dry_run,
+          commit_properties,
+          post_commithook_properties
         )
       JSON.parse(metrics).transform_keys(&:to_sym)
     end

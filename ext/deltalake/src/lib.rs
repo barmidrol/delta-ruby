@@ -836,8 +836,13 @@ impl RawDeltaTable {
         Ok(())
     }
 
-    pub fn repair(&self, dry_run: bool) -> RbResult<String> {
-        let cmd = FileSystemCheckBuilder::new(
+    pub fn repair(
+        &self,
+        dry_run: bool,
+        commit_properties: Option<RbCommitProperties>,
+        post_commithook_properties: Option<RbPostCommitHookProperties>,
+    ) -> RbResult<String> {
+        let mut cmd = FileSystemCheckBuilder::new(
             self._table.borrow().log_store(),
             self._table
                 .borrow()
@@ -846,6 +851,12 @@ impl RawDeltaTable {
                 .clone(),
         )
         .with_dry_run(dry_run);
+
+        if let Some(commit_properties) =
+            maybe_create_commit_properties(commit_properties, post_commithook_properties)
+        {
+            cmd = cmd.with_commit_properties(commit_properties);
+        }
 
         let (table, metrics) = rt().block_on(cmd.into_future()).map_err(RubyError::from)?;
         self._table.borrow_mut().state = table.state;
@@ -1331,7 +1342,7 @@ fn init(ruby: &Ruby) -> RbResult<()> {
         "set_table_properties",
         method!(RawDeltaTable::set_table_properties, 2),
     )?;
-    class.define_method("repair", method!(RawDeltaTable::repair, 1))?;
+    class.define_method("repair", method!(RawDeltaTable::repair, 3))?;
     class.define_method(
         "transaction_versions",
         method!(RawDeltaTable::transaction_versions, 0),
