@@ -1169,6 +1169,9 @@ fn write_to_deltalake(
     description: Option<String>,
     configuration: Option<HashMap<String, Option<String>>>,
     storage_options: Option<HashMap<String, String>>,
+    writer_properties: Option<RbWriterProperties>,
+    commit_properties: Option<RbCommitProperties>,
+    post_commithook_properties: Option<RbPostCommitHookProperties>,
 ) -> RbResult<()> {
     let batches = data.0.map(|batch| batch.unwrap()).collect::<Vec<_>>();
     let save_mode = mode.parse().map_err(RubyError::from)?;
@@ -1191,6 +1194,12 @@ fn write_to_deltalake(
         builder = builder.with_partition_columns(partition_columns);
     }
 
+    if let Some(writer_props) = writer_properties {
+        builder = builder.with_writer_properties(
+            set_writer_properties(writer_props).map_err(RubyError::from)?,
+        );
+    }
+
     if let Some(name) = &name {
         builder = builder.with_table_name(name);
     };
@@ -1209,6 +1218,12 @@ fn write_to_deltalake(
 
     if let Some(config) = configuration {
         builder = builder.with_configuration(config);
+    };
+
+    if let Some(commit_properties) =
+        maybe_create_commit_properties(commit_properties, post_commithook_properties)
+    {
+        builder = builder.with_commit_properties(commit_properties);
     };
 
     rt().block_on(builder.into_future())
@@ -1252,7 +1267,7 @@ fn init(ruby: &Ruby) -> RbResult<()> {
     deltalake::gcp::register_handlers(None);
 
     let module = ruby.define_module("DeltaLake")?;
-    module.define_singleton_method("write_deltalake_rust", function!(write_to_deltalake, 12))?;
+    module.define_singleton_method("write_deltalake_rust", function!(write_to_deltalake, 15))?;
     module.define_singleton_method("rust_core_version", function!(rust_core_version, 0))?;
 
     let class = module.define_class("RawDeltaTable", ruby.class_object())?;

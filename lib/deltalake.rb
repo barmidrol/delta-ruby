@@ -75,7 +75,10 @@ module DeltaLake
       schema_mode: nil,
       storage_options: nil,
       predicate: nil,
-      target_file_size: nil
+      target_file_size: nil,
+      writer_properties: nil,
+      commit_properties: nil,
+      post_commithook_properties: nil
     )
       table, table_uri = try_get_table_and_table_uri(table_or_uri, storage_options)
 
@@ -101,7 +104,10 @@ module DeltaLake
         name,
         description,
         configuration,
-        storage_options
+        storage_options,
+        writer_properties,
+        commit_properties,
+        post_commithook_properties
       )
 
       if table
