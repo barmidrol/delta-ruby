@@ -653,6 +653,7 @@ impl RawDeltaTable {
         target: Option<Value>,
         ignore_missing_files: bool,
         protocol_downgrade_allowed: bool,
+        commit_properties: Option<RbCommitProperties>,
     ) -> RbResult<String> {
         let mut cmd = RestoreBuilder::new(
             self._table.borrow().log_store(),
@@ -677,6 +678,10 @@ impl RawDeltaTable {
         }
         cmd = cmd.with_ignore_missing_files(ignore_missing_files);
         cmd = cmd.with_protocol_downgrade_allowed(protocol_downgrade_allowed);
+
+        if let Some(commit_properties) = maybe_create_commit_properties(commit_properties, None) {
+            cmd = cmd.with_commit_properties(commit_properties);
+        }
 
         let (table, metrics) = rt().block_on(cmd.into_future()).map_err(RubyError::from)?;
         self._table.borrow_mut().state = table.state;
@@ -1283,7 +1288,7 @@ fn init(ruby: &Ruby) -> RbResult<()> {
         method!(RawDeltaTable::create_merge_builder, 8),
     )?;
     class.define_method("merge_execute", method!(RawDeltaTable::merge_execute, 1))?;
-    class.define_method("restore", method!(RawDeltaTable::restore, 3))?;
+    class.define_method("restore", method!(RawDeltaTable::restore, 4))?;
     class.define_method("history", method!(RawDeltaTable::history, 1))?;
     class.define_method(
         "update_incremental",

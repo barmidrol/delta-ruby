@@ -165,21 +165,24 @@ module DeltaLake
     def restore(
       target,
       ignore_missing_files: false,
-      protocol_downgrade_allowed: false
+      protocol_downgrade_allowed: false,
+      commit_properties: nil
     )
       if target.is_a?(Time)
         metrics =
           @table.restore(
             target.utc.iso8601(9),
             ignore_missing_files,
-            protocol_downgrade_allowed
+            protocol_downgrade_allowed,
+            commit_properties
           )
       else
         metrics =
           @table.restore(
             target,
             ignore_missing_files,
-            protocol_downgrade_allowed
+            protocol_downgrade_allowed,
+            commit_properties
           )
       end
       JSON.parse(metrics)
