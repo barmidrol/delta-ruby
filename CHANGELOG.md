@@ -1,6 +1,7 @@
 ## 0.1.2 (unreleased)
 
 - Added `merge` method to `Table`
+- Added `set_table_properties` method
 
 ## 0.1.1 (2024-11-22)
 

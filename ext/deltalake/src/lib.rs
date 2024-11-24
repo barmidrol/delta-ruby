@@ -29,6 +29,7 @@ use deltalake::operations::filesystem_check::FileSystemCheckBuilder;
 use deltalake::operations::load_cdf::CdfLoadBuilder;
 use deltalake::operations::optimize::{OptimizeBuilder, OptimizeType};
 use deltalake::operations::restore::RestoreBuilder;
+use deltalake::operations::set_tbl_properties::SetTablePropertiesBuilder;
 use deltalake::operations::transaction::TableReference;
 use deltalake::operations::vacuum::VacuumBuilder;
 use deltalake::partitions::PartitionFilter;
@@ -700,6 +701,27 @@ impl RawDeltaTable {
         Ok(serde_json::to_string(&metrics).unwrap())
     }
 
+    pub fn set_table_properties(
+        &self,
+        properties: HashMap<String, String>,
+        raise_if_not_exists: bool,
+    ) -> RbResult<()> {
+        let cmd = SetTablePropertiesBuilder::new(
+            self._table.borrow().log_store(),
+            self._table
+                .borrow()
+                .snapshot()
+                .map_err(RubyError::from)?
+                .clone(),
+        )
+        .with_properties(properties)
+        .with_raise_if_not_exists(raise_if_not_exists);
+
+        let table = rt().block_on(cmd.into_future()).map_err(RubyError::from)?;
+        self._table.borrow_mut().state = table.state;
+        Ok(())
+    }
+
     pub fn repair(&self, dry_run: bool) -> RbResult<String> {
         let cmd = FileSystemCheckBuilder::new(
             self._table.borrow().log_store(),
@@ -947,6 +969,10 @@ fn init(ruby: &Ruby) -> RbResult<()> {
         method!(RawDeltaTable::get_add_file_sizes, 0),
     )?;
     class.define_method("delete", method!(RawDeltaTable::delete, 1))?;
+    class.define_method(
+        "set_table_properties",
+        method!(RawDeltaTable::set_table_properties, 2),
+    )?;
     class.define_method("repair", method!(RawDeltaTable::repair, 1))?;
     class.define_method(
         "transaction_versions",

@@ -44,5 +44,15 @@ module DeltaLake
         raise_if_not_exists
       )
     end
+
+    def set_table_properties(
+      properties,
+      raise_if_not_exists: true
+    )
+      @table._table.set_table_properties(
+        properties,
+        raise_if_not_exists
+      )
+    end
   end
 end

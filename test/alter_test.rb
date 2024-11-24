@@ -75,4 +75,16 @@ class AlterTest < Minitest::Test
       dt.alter.drop_constraint("a_gt_0", raise_if_not_exists: false)
     end
   end
+
+  def test_set_table_properties
+    df = Polars::DataFrame.new({"a" => [1, 2, 3]})
+    with_table(df) do |dt|
+      dt.alter.set_table_properties({"delta.enableChangeDataFeed" => "true"})
+
+      error = assert_raises(DeltaLake::Error) do
+        dt.alter.set_table_properties({"missing" => "true"})
+      end
+      assert_equal "Kernel: Generic delta kernel error: Error parsing property 'missing':'true'", error.message
+    end
+  end
 end
