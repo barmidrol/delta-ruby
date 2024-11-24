@@ -141,7 +141,10 @@ module DeltaLake
       predicate,
       source_alias: nil,
       target_alias: nil,
-      error_on_type_mismatch: true
+      error_on_type_mismatch: true,
+      writer_properties: nil,
+      post_commithook_properties: nil,
+      commit_properties: nil
     )
       source = Utils.convert_data(source)
 
@@ -151,7 +154,10 @@ module DeltaLake
           predicate,
           source_alias,
           target_alias,
-          !error_on_type_mismatch
+          !error_on_type_mismatch,
+          writer_properties,
+          post_commithook_properties,
+          commit_properties
         )
       TableMerger.new(rb_merge_builder, @table)
     end

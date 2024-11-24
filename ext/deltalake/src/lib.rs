@@ -619,6 +619,9 @@ impl RawDeltaTable {
         source_alias: Option<String>,
         target_alias: Option<String>,
         safe_cast: bool,
+        writer_properties: Option<RbWriterProperties>,
+        post_commithook_properties: Option<RbPostCommitHookProperties>,
+        commit_properties: Option<RbCommitProperties>,
     ) -> RbResult<RbMergeBuilder> {
         Ok(RbMergeBuilder::new(
             self._table.borrow().log_store(),
@@ -632,6 +635,9 @@ impl RawDeltaTable {
             source_alias,
             target_alias,
             safe_cast,
+            writer_properties,
+            post_commithook_properties,
+            commit_properties,
         )
         .map_err(RubyError::from)?)
     }
@@ -1274,7 +1280,7 @@ fn init(ruby: &Ruby) -> RbResult<()> {
     class.define_method("load_cdf", method!(RawDeltaTable::load_cdf, 5))?;
     class.define_method(
         "create_merge_builder",
-        method!(RawDeltaTable::create_merge_builder, 5),
+        method!(RawDeltaTable::create_merge_builder, 8),
     )?;
     class.define_method("merge_execute", method!(RawDeltaTable::merge_execute, 1))?;
     class.define_method("restore", method!(RawDeltaTable::restore, 3))?;

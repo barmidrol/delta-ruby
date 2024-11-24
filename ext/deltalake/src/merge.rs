@@ -16,6 +16,10 @@ use std::sync::Arc;
 use crate::error::RubyError;
 use crate::utils::rt;
 use crate::RbResult;
+use crate::{
+    maybe_create_commit_properties, set_writer_properties, RbCommitProperties,
+    RbPostCommitHookProperties, RbWriterProperties,
+};
 
 #[magnus::wrap(class = "DeltaLake::RbMergeBuilder")]
 pub(crate) struct RbMergeBuilder {
@@ -46,6 +50,9 @@ impl RbMergeBuilder {
         source_alias: Option<String>,
         target_alias: Option<String>,
         safe_cast: bool,
+        writer_properties: Option<RbWriterProperties>,
+        post_commithook_properties: Option<RbPostCommitHookProperties>,
+        commit_properties: Option<RbCommitProperties>,
     ) -> DeltaResult<Self> {
         let ctx = SessionContext::new();
         let schema = source.schema();
@@ -63,6 +70,16 @@ impl RbMergeBuilder {
 
         if let Some(trgt_alias) = &target_alias {
             cmd = cmd.with_target_alias(trgt_alias);
+        }
+
+        if let Some(writer_props) = writer_properties {
+            cmd = cmd.with_writer_properties(set_writer_properties(writer_props)?);
+        }
+
+        if let Some(commit_properties) =
+            maybe_create_commit_properties(commit_properties, post_commithook_properties)
+        {
+            cmd = cmd.with_commit_properties(commit_properties);
         }
 
         Ok(Self {
