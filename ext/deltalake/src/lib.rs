@@ -414,10 +414,14 @@ impl RawDeltaTable {
     pub fn z_order_optimize(
         &self,
         z_order_columns: Vec<String>,
+        partition_filters: Option<Vec<(String, String, PartitionFilterValue)>>,
         target_size: Option<i64>,
         max_concurrent_tasks: Option<usize>,
         max_spill_size: usize,
         min_commit_interval: Option<u64>,
+        writer_properties: Option<RbWriterProperties>,
+        commit_properties: Option<RbCommitProperties>,
+        post_commithook_properties: Option<RbPostCommitHookProperties>,
     ) -> RbResult<String> {
         let mut cmd = OptimizeBuilder::new(
             self._table.borrow().log_store(),
@@ -436,6 +440,22 @@ impl RawDeltaTable {
         if let Some(commit_interval) = min_commit_interval {
             cmd = cmd.with_min_commit_interval(time::Duration::from_secs(commit_interval));
         }
+
+        if let Some(writer_props) = writer_properties {
+            cmd = cmd.with_writer_properties(
+                set_writer_properties(writer_props).map_err(RubyError::from)?,
+            );
+        }
+
+        if let Some(commit_properties) =
+            maybe_create_commit_properties(commit_properties, post_commithook_properties)
+        {
+            cmd = cmd.with_commit_properties(commit_properties);
+        }
+
+        let converted_filters = convert_partition_filters(partition_filters.unwrap_or_default())
+            .map_err(RubyError::from)?;
+        cmd = cmd.with_filters(&converted_filters);
 
         let (table, metrics) = rt().block_on(cmd.into_future()).map_err(RubyError::from)?;
         self._table.borrow_mut().state = table.state;
@@ -1239,7 +1259,7 @@ fn init(ruby: &Ruby) -> RbResult<()> {
     )?;
     class.define_method(
         "z_order_optimize",
-        method!(RawDeltaTable::z_order_optimize, 5),
+        method!(RawDeltaTable::z_order_optimize, 9),
     )?;
     class.define_method("add_columns", method!(RawDeltaTable::add_columns, 1))?;
     class.define_method("add_feature", method!(RawDeltaTable::add_feature, 2))?;
