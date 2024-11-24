@@ -68,14 +68,29 @@ struct RawDeltaTableMetaData {
     configuration: HashMap<String, Option<String>>,
 }
 
-#[magnus::wrap(class = "DeltaLake::ArrowArrayStream")]
-pub struct ArrowArrayStream {
-    stream: FFI_ArrowArrayStream,
-}
+impl RawDeltaTableMetaData {
+    fn id(&self) -> String {
+        self.id.clone()
+    }
 
-impl ArrowArrayStream {
-    pub fn to_i(&self) -> usize {
-        (&self.stream as *const _) as usize
+    fn name(&self) -> Option<String> {
+        self.name.clone()
+    }
+
+    fn description(&self) -> Option<String> {
+        self.description.clone()
+    }
+
+    fn partition_columns(&self) -> Vec<String> {
+        self.partition_columns.clone()
+    }
+
+    fn created_time(&self) -> Option<i64> {
+        self.created_time
+    }
+
+    fn configuration(&self) -> HashMap<String, Option<String>> {
+        self.configuration.clone()
     }
 }
 
@@ -759,32 +774,6 @@ fn rust_core_version() -> String {
     deltalake::crate_version().to_string()
 }
 
-impl RawDeltaTableMetaData {
-    fn id(&self) -> String {
-        self.id.clone()
-    }
-
-    fn name(&self) -> Option<String> {
-        self.name.clone()
-    }
-
-    fn description(&self) -> Option<String> {
-        self.description.clone()
-    }
-
-    fn partition_columns(&self) -> Vec<String> {
-        self.partition_columns.clone()
-    }
-
-    fn created_time(&self) -> Option<i64> {
-        self.created_time
-    }
-
-    fn configuration(&self) -> HashMap<String, Option<String>> {
-        self.configuration.clone()
-    }
-}
-
 #[magnus::wrap(class = "DeltaLake::Transaction")]
 pub struct RbTransaction {
     pub app_id: String,
@@ -878,6 +867,17 @@ impl TryConvert for RbArrowType<ArrowArrayStreamReader> {
             ArrowArrayStreamReader::try_new(*stream_ptr)
                 .map_err(|err| DeltaError::new_err(err.to_string()))?,
         ))
+    }
+}
+
+#[magnus::wrap(class = "DeltaLake::ArrowArrayStream")]
+pub struct ArrowArrayStream {
+    stream: FFI_ArrowArrayStream,
+}
+
+impl ArrowArrayStream {
+    pub fn to_i(&self) -> usize {
+        (&self.stream as *const _) as usize
     }
 }
 
