@@ -109,7 +109,9 @@ module DeltaLake
     def vacuum(
       retention_hours: nil,
       dry_run: true,
-      enforce_retention_duration: true
+      enforce_retention_duration: true,
+      post_commithook_properties: nil,
+      commit_properties: nil
     )
       if retention_hours
         if retention_hours < 0
@@ -120,7 +122,9 @@ module DeltaLake
       @table.vacuum(
         dry_run,
         retention_hours,
-        enforce_retention_duration
+        enforce_retention_duration,
+        commit_properties,
+        post_commithook_properties
       )
     end
 

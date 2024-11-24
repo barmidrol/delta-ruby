@@ -134,6 +134,26 @@ class TableTest < Minitest::Test
     end
   end
 
+  def test_vacuum_commit_properties
+    df = Polars::DataFrame.new({"a" => [1, 2, 3]})
+    with_table(df) do |dt|
+      dt.delete
+
+      # fix flakiness
+      sleep(0.001)
+
+      dt.vacuum(
+        dry_run: false,
+        retention_hours: 0,
+        enforce_retention_duration: false,
+        commit_properties: DeltaLake::CommitProperties.new(custom_metadata: {"hello" => "world"})
+      )
+
+      history = dt.history(limit: 1)
+      assert_equal "world", history[0]["hello"]
+    end
+  end
+
   def test_repair
     df = Polars::DataFrame.new({"a" => [1, 2, 3]})
     with_table(df) do |dt|

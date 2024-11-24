@@ -41,6 +41,22 @@ module DeltaLake
       :reader_features
     )
 
+  CommitProperties =
+    Struct.new(
+      :custom_metadata,
+      :max_commit_retries,
+      # TODO
+      # :app_transactions,
+      keyword_init: true
+    )
+
+  PostCommitHookProperties =
+    Struct.new(
+      :create_checkpoint,
+      :cleanup_expired_logs,
+      keyword_init: true
+    )
+
   class ArrowArrayStream
     def arrow_c_stream
       self

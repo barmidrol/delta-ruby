@@ -30,7 +30,7 @@ use deltalake::operations::load_cdf::CdfLoadBuilder;
 use deltalake::operations::optimize::{OptimizeBuilder, OptimizeType};
 use deltalake::operations::restore::RestoreBuilder;
 use deltalake::operations::set_tbl_properties::SetTablePropertiesBuilder;
-use deltalake::operations::transaction::TableReference;
+use deltalake::operations::transaction::{CommitProperties, TableReference};
 use deltalake::operations::vacuum::VacuumBuilder;
 use deltalake::partitions::PartitionFilter;
 use deltalake::storage::IORuntime;
@@ -42,6 +42,7 @@ use magnus::{
     function, method, prelude::*, typed_data::Obj, Error, Integer, Module, RArray, RHash, Ruby,
     TryConvert, Value,
 };
+use serde_json::Map;
 
 use crate::error::DeltaProtocolError;
 use crate::error::RbValueError;
@@ -312,6 +313,8 @@ impl RawDeltaTable {
         dry_run: bool,
         retention_hours: Option<u64>,
         enforce_retention_duration: bool,
+        commit_properties: Option<RbCommitProperties>,
+        post_commithook_properties: Option<RbPostCommitHookProperties>,
     ) -> RbResult<Vec<String>> {
         let mut cmd = VacuumBuilder::new(
             self._table.borrow().log_store(),
@@ -327,6 +330,11 @@ impl RawDeltaTable {
             cmd = cmd.with_retention_period(Duration::hours(retention_period as i64));
         }
 
+        if let Some(commit_properties) =
+            maybe_create_commit_properties(commit_properties, post_commithook_properties)
+        {
+            cmd = cmd.with_commit_properties(commit_properties);
+        }
         let (table, metrics) = rt().block_on(cmd.into_future()).map_err(RubyError::from)?;
         self._table.borrow_mut().state = table.state;
         Ok(metrics.files_deleted)
@@ -764,14 +772,72 @@ impl RawDeltaTable {
     }
 }
 
+fn set_post_commithook_properties(
+    mut commit_properties: CommitProperties,
+    post_commithook_properties: RbPostCommitHookProperties,
+) -> CommitProperties {
+    commit_properties =
+        commit_properties.with_create_checkpoint(post_commithook_properties.create_checkpoint);
+    commit_properties = commit_properties
+        .with_cleanup_expired_logs(post_commithook_properties.cleanup_expired_logs);
+    commit_properties
+}
+
 fn convert_partition_filters(
     _partitions_filters: Value,
 ) -> Result<Vec<PartitionFilter>, DeltaTableError> {
     todo!()
 }
 
+fn maybe_create_commit_properties(
+    maybe_commit_properties: Option<RbCommitProperties>,
+    post_commithook_properties: Option<RbPostCommitHookProperties>,
+) -> Option<CommitProperties> {
+    if maybe_commit_properties.is_none() && post_commithook_properties.is_none() {
+        return None;
+    }
+    let mut commit_properties = CommitProperties::default();
+
+    if let Some(commit_props) = maybe_commit_properties {
+        if let Some(metadata) = commit_props.custom_metadata {
+            let json_metadata: Map<String, serde_json::Value> =
+                metadata.into_iter().map(|(k, v)| (k, v.into())).collect();
+            commit_properties = commit_properties.with_metadata(json_metadata);
+        };
+
+        if let Some(max_retries) = commit_props.max_commit_retries {
+            commit_properties = commit_properties.with_max_retries(max_retries);
+        };
+
+        if let Some(app_transactions) = commit_props.app_transactions {
+            let app_transactions = app_transactions.iter().map(Transaction::from).collect();
+            commit_properties = commit_properties.with_application_transactions(app_transactions);
+        }
+    }
+
+    if let Some(post_commit_hook_props) = post_commithook_properties {
+        commit_properties =
+            set_post_commithook_properties(commit_properties, post_commit_hook_props)
+    }
+    Some(commit_properties)
+}
+
 fn rust_core_version() -> String {
     deltalake::crate_version().to_string()
+}
+
+pub struct RbPostCommitHookProperties {
+    create_checkpoint: bool,
+    cleanup_expired_logs: Option<bool>,
+}
+
+impl TryConvert for RbPostCommitHookProperties {
+    fn try_convert(val: Value) -> RbResult<Self> {
+        Ok(RbPostCommitHookProperties {
+            create_checkpoint: val.funcall("create_checkpoint", ())?,
+            cleanup_expired_logs: val.funcall("cleanup_expired_logs", ())?,
+        })
+    }
 }
 
 #[magnus::wrap(class = "DeltaLake::Transaction")]
@@ -788,6 +854,33 @@ impl From<Transaction> for RbTransaction {
             version: value.version,
             last_updated: value.last_updated,
         }
+    }
+}
+
+impl From<&RbTransaction> for Transaction {
+    fn from(value: &RbTransaction) -> Self {
+        Transaction {
+            app_id: value.app_id.clone(),
+            version: value.version,
+            last_updated: value.last_updated,
+        }
+    }
+}
+
+pub struct RbCommitProperties {
+    custom_metadata: Option<HashMap<String, String>>,
+    max_commit_retries: Option<usize>,
+    app_transactions: Option<Vec<RbTransaction>>,
+}
+
+impl TryConvert for RbCommitProperties {
+    fn try_convert(val: Value) -> RbResult<Self> {
+        Ok(RbCommitProperties {
+            custom_metadata: val.funcall("custom_metadata", ())?,
+            max_commit_retries: val.funcall("max_commit_retries", ())?,
+            // TODO fix
+            app_transactions: None,
+        })
     }
 }
 
@@ -926,7 +1019,7 @@ fn init(ruby: &Ruby) -> RbResult<()> {
     class.define_method("files", method!(RawDeltaTable::files, 1))?;
     class.define_method("file_uris", method!(RawDeltaTable::file_uris, 1))?;
     class.define_method("schema", method!(RawDeltaTable::schema, 0))?;
-    class.define_method("vacuum", method!(RawDeltaTable::vacuum, 3))?;
+    class.define_method("vacuum", method!(RawDeltaTable::vacuum, 5))?;
     class.define_method(
         "compact_optimize",
         method!(RawDeltaTable::compact_optimize, 3),
