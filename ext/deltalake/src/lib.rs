@@ -32,9 +32,12 @@ use deltalake::operations::restore::RestoreBuilder;
 use deltalake::operations::set_tbl_properties::SetTablePropertiesBuilder;
 use deltalake::operations::transaction::{CommitProperties, TableReference};
 use deltalake::operations::vacuum::VacuumBuilder;
+use deltalake::parquet::basic::Compression;
+use deltalake::parquet::errors::ParquetError;
+use deltalake::parquet::file::properties::WriterProperties;
 use deltalake::partitions::PartitionFilter;
 use deltalake::storage::IORuntime;
-use deltalake::DeltaOps;
+use deltalake::{DeltaOps, DeltaResult};
 use error::DeltaError;
 use futures::future::join_all;
 
@@ -53,6 +56,21 @@ use crate::schema::{schema_to_rbobject, Field};
 use crate::utils::rt;
 
 type RbResult<T> = Result<T, Error>;
+
+enum PartitionFilterValue {
+    Single(String),
+    Multiple(Vec<String>),
+}
+
+impl TryConvert for PartitionFilterValue {
+    fn try_convert(val: Value) -> RbResult<Self> {
+        if let Ok(v) = Vec::<String>::try_convert(val) {
+            Ok(PartitionFilterValue::Multiple(v))
+        } else {
+            Ok(PartitionFilterValue::Single(String::try_convert(val)?))
+        }
+    }
+}
 
 #[magnus::wrap(class = "DeltaLake::RawDeltaTable")]
 struct RawDeltaTable {
@@ -254,7 +272,10 @@ impl RawDeltaTable {
             .map_err(RubyError::from)?)
     }
 
-    pub fn files(&self, partition_filters: Option<Value>) -> RbResult<Vec<String>> {
+    pub fn files(
+        &self,
+        partition_filters: Option<Vec<(String, String, PartitionFilterValue)>>,
+    ) -> RbResult<Vec<String>> {
         if !self.has_files()? {
             return Err(DeltaError::new_err("Table is instantiated without files."));
         }
@@ -280,7 +301,10 @@ impl RawDeltaTable {
         }
     }
 
-    pub fn file_uris(&self, partition_filters: Option<Value>) -> RbResult<Vec<String>> {
+    pub fn file_uris(
+        &self,
+        partition_filters: Option<Vec<(String, String, PartitionFilterValue)>>,
+    ) -> RbResult<Vec<String>> {
         if !self._table.borrow().config.require_files {
             return Err(DeltaError::new_err("Table is initiated without files."));
         }
@@ -342,9 +366,13 @@ impl RawDeltaTable {
 
     pub fn compact_optimize(
         &self,
+        partition_filters: Option<Vec<(String, String, PartitionFilterValue)>>,
         target_size: Option<i64>,
         max_concurrent_tasks: Option<usize>,
         min_commit_interval: Option<u64>,
+        writer_properties: Option<RbWriterProperties>,
+        commit_properties: Option<RbCommitProperties>,
+        post_commithook_properties: Option<RbPostCommitHookProperties>,
     ) -> RbResult<String> {
         let mut cmd = OptimizeBuilder::new(
             self._table.borrow().log_store(),
@@ -361,6 +389,22 @@ impl RawDeltaTable {
         if let Some(commit_interval) = min_commit_interval {
             cmd = cmd.with_min_commit_interval(time::Duration::from_secs(commit_interval));
         }
+
+        if let Some(writer_props) = writer_properties {
+            cmd = cmd.with_writer_properties(
+                set_writer_properties(writer_props).map_err(RubyError::from)?,
+            );
+        }
+
+        if let Some(commit_properties) =
+            maybe_create_commit_properties(commit_properties, post_commithook_properties)
+        {
+            cmd = cmd.with_commit_properties(commit_properties);
+        }
+
+        let converted_filters = convert_partition_filters(partition_filters.unwrap_or_default())
+            .map_err(RubyError::from)?;
+        cmd = cmd.with_filters(&converted_filters);
 
         let (table, metrics) = rt().block_on(cmd.into_future()).map_err(RubyError::from)?;
         self._table.borrow_mut().state = table.state;
@@ -783,10 +827,118 @@ fn set_post_commithook_properties(
     commit_properties
 }
 
+fn set_writer_properties(writer_properties: RbWriterProperties) -> DeltaResult<WriterProperties> {
+    let mut properties = WriterProperties::builder();
+    let data_page_size_limit = writer_properties.data_page_size_limit;
+    let dictionary_page_size_limit = writer_properties.dictionary_page_size_limit;
+    let data_page_row_count_limit = writer_properties.data_page_row_count_limit;
+    let write_batch_size = writer_properties.write_batch_size;
+    let max_row_group_size = writer_properties.max_row_group_size;
+    let compression = writer_properties.compression;
+    let statistics_truncate_length = writer_properties.statistics_truncate_length;
+    let default_column_properties = writer_properties.default_column_properties;
+    let column_properties = writer_properties.column_properties;
+
+    if let Some(data_page_size) = data_page_size_limit {
+        properties = properties.set_data_page_size_limit(data_page_size);
+    }
+    if let Some(dictionary_page_size) = dictionary_page_size_limit {
+        properties = properties.set_dictionary_page_size_limit(dictionary_page_size);
+    }
+    if let Some(data_page_row_count) = data_page_row_count_limit {
+        properties = properties.set_data_page_row_count_limit(data_page_row_count);
+    }
+    if let Some(batch_size) = write_batch_size {
+        properties = properties.set_write_batch_size(batch_size);
+    }
+    if let Some(row_group_size) = max_row_group_size {
+        properties = properties.set_max_row_group_size(row_group_size);
+    }
+    properties = properties.set_statistics_truncate_length(statistics_truncate_length);
+
+    if let Some(compression) = compression {
+        let compress: Compression = compression
+            .parse()
+            .map_err(|err: ParquetError| DeltaTableError::Generic(err.to_string()))?;
+
+        properties = properties.set_compression(compress);
+    }
+
+    if let Some(default_column_properties) = default_column_properties {
+        if let Some(dictionary_enabled) = default_column_properties.dictionary_enabled {
+            properties = properties.set_dictionary_enabled(dictionary_enabled);
+        }
+        if let Some(max_statistics_size) = default_column_properties.max_statistics_size {
+            properties = properties.set_max_statistics_size(max_statistics_size);
+        }
+        if let Some(bloom_filter_properties) = default_column_properties.bloom_filter_properties {
+            if let Some(set_bloom_filter_enabled) = bloom_filter_properties.set_bloom_filter_enabled
+            {
+                properties = properties.set_bloom_filter_enabled(set_bloom_filter_enabled);
+            }
+            if let Some(bloom_filter_fpp) = bloom_filter_properties.fpp {
+                properties = properties.set_bloom_filter_fpp(bloom_filter_fpp);
+            }
+            if let Some(bloom_filter_ndv) = bloom_filter_properties.ndv {
+                properties = properties.set_bloom_filter_ndv(bloom_filter_ndv);
+            }
+        }
+    }
+    if let Some(column_properties) = column_properties {
+        for (column_name, column_prop) in column_properties {
+            if let Some(column_prop) = column_prop {
+                if let Some(dictionary_enabled) = column_prop.dictionary_enabled {
+                    properties = properties.set_column_dictionary_enabled(
+                        column_name.clone().into(),
+                        dictionary_enabled,
+                    );
+                }
+                if let Some(bloom_filter_properties) = column_prop.bloom_filter_properties {
+                    if let Some(set_bloom_filter_enabled) =
+                        bloom_filter_properties.set_bloom_filter_enabled
+                    {
+                        properties = properties.set_column_bloom_filter_enabled(
+                            column_name.clone().into(),
+                            set_bloom_filter_enabled,
+                        );
+                    }
+                    if let Some(bloom_filter_fpp) = bloom_filter_properties.fpp {
+                        properties = properties.set_column_bloom_filter_fpp(
+                            column_name.clone().into(),
+                            bloom_filter_fpp,
+                        );
+                    }
+                    if let Some(bloom_filter_ndv) = bloom_filter_properties.ndv {
+                        properties = properties
+                            .set_column_bloom_filter_ndv(column_name.into(), bloom_filter_ndv);
+                    }
+                }
+            }
+        }
+    }
+    Ok(properties.build())
+}
+
 fn convert_partition_filters(
-    _partitions_filters: Value,
+    partitions_filters: Vec<(String, String, PartitionFilterValue)>,
 ) -> Result<Vec<PartitionFilter>, DeltaTableError> {
-    todo!()
+    partitions_filters
+        .into_iter()
+        .map(|filter| match filter {
+            (key, op, PartitionFilterValue::Single(v)) => {
+                let key: &'_ str = key.as_ref();
+                let op: &'_ str = op.as_ref();
+                let v: &'_ str = v.as_ref();
+                PartitionFilter::try_from((key, op, v))
+            }
+            (key, op, PartitionFilterValue::Multiple(v)) => {
+                let key: &'_ str = key.as_ref();
+                let op: &'_ str = op.as_ref();
+                let v: Vec<&'_ str> = v.iter().map(|v| v.as_ref()).collect();
+                PartitionFilter::try_from((key, op, v.as_slice()))
+            }
+        })
+        .collect()
 }
 
 fn maybe_create_commit_properties(
@@ -824,6 +976,67 @@ fn maybe_create_commit_properties(
 
 fn rust_core_version() -> String {
     deltalake::crate_version().to_string()
+}
+
+pub struct BloomFilterProperties {
+    pub set_bloom_filter_enabled: Option<bool>,
+    pub fpp: Option<f64>,
+    pub ndv: Option<u64>,
+}
+
+impl TryConvert for BloomFilterProperties {
+    fn try_convert(val: Value) -> RbResult<Self> {
+        Ok(BloomFilterProperties {
+            set_bloom_filter_enabled: val.funcall("set_bloom_filter_enabled", ())?,
+            fpp: val.funcall("fpp", ())?,
+            ndv: val.funcall("ndv", ())?,
+        })
+    }
+}
+
+pub struct ColumnProperties {
+    pub dictionary_enabled: Option<bool>,
+    pub max_statistics_size: Option<usize>,
+    pub bloom_filter_properties: Option<BloomFilterProperties>,
+}
+
+impl TryConvert for ColumnProperties {
+    fn try_convert(val: Value) -> RbResult<Self> {
+        Ok(ColumnProperties {
+            dictionary_enabled: val.funcall("dictionary_enabled", ())?,
+            max_statistics_size: val.funcall("max_statistics_size", ())?,
+            bloom_filter_properties: val.funcall("bloom_filter_properties", ())?,
+        })
+    }
+}
+
+pub struct RbWriterProperties {
+    data_page_size_limit: Option<usize>,
+    dictionary_page_size_limit: Option<usize>,
+    data_page_row_count_limit: Option<usize>,
+    write_batch_size: Option<usize>,
+    max_row_group_size: Option<usize>,
+    statistics_truncate_length: Option<usize>,
+    compression: Option<String>,
+    default_column_properties: Option<ColumnProperties>,
+    column_properties: Option<HashMap<String, Option<ColumnProperties>>>,
+}
+
+impl TryConvert for RbWriterProperties {
+    fn try_convert(val: Value) -> RbResult<Self> {
+        Ok(RbWriterProperties {
+            data_page_size_limit: val.funcall("data_page_size_limit", ())?,
+            dictionary_page_size_limit: val.funcall("dictionary_page_size_limit", ())?,
+            data_page_row_count_limit: val.funcall("data_page_row_count_limit", ())?,
+            write_batch_size: val.funcall("write_batch_size", ())?,
+            max_row_group_size: val.funcall("max_row_group_size", ())?,
+            statistics_truncate_length: val.funcall("statistics_truncate_length", ())?,
+            compression: val.funcall("compression", ())?,
+            default_column_properties: val.funcall("default_column_properties", ())?,
+            // TODO fix
+            column_properties: None,
+        })
+    }
 }
 
 pub struct RbPostCommitHookProperties {
@@ -1022,7 +1235,7 @@ fn init(ruby: &Ruby) -> RbResult<()> {
     class.define_method("vacuum", method!(RawDeltaTable::vacuum, 5))?;
     class.define_method(
         "compact_optimize",
-        method!(RawDeltaTable::compact_optimize, 3),
+        method!(RawDeltaTable::compact_optimize, 7),
     )?;
     class.define_method(
         "z_order_optimize",

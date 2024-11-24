@@ -5,15 +5,23 @@ module DeltaLake
     end
 
     def compact(
+      partition_filters: nil,
       target_size: nil,
       max_concurrent_tasks: nil,
-      min_commit_interval: nil
+      min_commit_interval: nil,
+      writer_properties: nil,
+      post_commithook_properties: nil,
+      commit_properties: nil
     )
       metrics =
         @table._table.compact_optimize(
+          partition_filters,
           target_size,
           max_concurrent_tasks,
-          min_commit_interval
+          min_commit_interval,
+          writer_properties,
+          post_commithook_properties,
+          commit_properties
         )
       @table.update_incremental
       result = JSON.parse(metrics)
