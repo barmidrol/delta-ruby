@@ -781,7 +781,13 @@ impl RawDeltaTable {
             .collect::<HashMap<String, i64>>())
     }
 
-    pub fn delete(&self, predicate: Option<String>) -> RbResult<String> {
+    pub fn delete(
+        &self,
+        predicate: Option<String>,
+        writer_properties: Option<RbWriterProperties>,
+        commit_properties: Option<RbCommitProperties>,
+        post_commithook_properties: Option<RbPostCommitHookProperties>,
+    ) -> RbResult<String> {
         let mut cmd = DeleteBuilder::new(
             self._table.borrow().log_store(),
             self._table
@@ -792,6 +798,16 @@ impl RawDeltaTable {
         );
         if let Some(predicate) = predicate {
             cmd = cmd.with_predicate(predicate);
+        }
+        if let Some(writer_props) = writer_properties {
+            cmd = cmd.with_writer_properties(
+                set_writer_properties(writer_props).map_err(RubyError::from)?,
+            );
+        }
+        if let Some(commit_properties) =
+            maybe_create_commit_properties(commit_properties, post_commithook_properties)
+        {
+            cmd = cmd.with_commit_properties(commit_properties);
         }
 
         let (table, metrics) = rt().block_on(cmd.into_future()).map_err(RubyError::from)?;
@@ -1310,7 +1326,7 @@ fn init(ruby: &Ruby) -> RbResult<()> {
         "get_add_file_sizes",
         method!(RawDeltaTable::get_add_file_sizes, 0),
     )?;
-    class.define_method("delete", method!(RawDeltaTable::delete, 1))?;
+    class.define_method("delete", method!(RawDeltaTable::delete, 4))?;
     class.define_method(
         "set_table_properties",
         method!(RawDeltaTable::set_table_properties, 2),

@@ -212,8 +212,19 @@ module DeltaLake
       @table.update_incremental
     end
 
-    def delete(predicate = nil)
-      metrics = @table.delete(predicate)
+    def delete(
+      predicate = nil,
+      writer_properties: nil,
+      post_commithook_properties: nil,
+      commit_properties: nil
+    )
+      metrics =
+        @table.delete(
+          predicate,
+          writer_properties,
+          post_commithook_properties,
+          commit_properties
+        )
       JSON.parse(metrics).transform_keys(&:to_sym)
     end
 
