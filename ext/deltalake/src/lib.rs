@@ -755,6 +755,10 @@ fn convert_partition_filters(
     todo!()
 }
 
+fn rust_core_version() -> String {
+    deltalake::crate_version().to_string()
+}
+
 impl RawDeltaTableMetaData {
     fn id(&self) -> String {
         self.id.clone()
@@ -885,6 +889,7 @@ fn init(ruby: &Ruby) -> RbResult<()> {
 
     let module = ruby.define_module("DeltaLake")?;
     module.define_singleton_method("write_deltalake_rust", function!(write_to_deltalake, 12))?;
+    module.define_singleton_method("rust_core_version", function!(rust_core_version, 0))?;
 
     let class = module.define_class("RawDeltaTable", ruby.class_object())?;
     class.define_singleton_method("new", function!(RawDeltaTable::new, 5))?;

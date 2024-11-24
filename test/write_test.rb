@@ -54,4 +54,8 @@ class WriteTest < Minitest::Test
       assert_equal "Only objects implementing the Arrow C stream interface are valid inputs for source.", error.message
     end
   end
+
+  def test_rust_core_version
+    assert_match(/\A\d+\.\d+\.\d+\z/, DeltaLake.rust_core_version)
+  end
 end
