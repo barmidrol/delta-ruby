@@ -1,4 +1,4 @@
-## 0.1.2 (unreleased)
+## 0.1.2 (2024-12-03)
 
 - Updated `deltalake` to 0.22.2
 - Added `merge` method to `Table`
