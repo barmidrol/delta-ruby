@@ -105,6 +105,16 @@ class TypesTest < Minitest::Test
     end
   end
 
+  def test_string
+    with_new_table do |table_uri|
+      df = Polars::DataFrame.new({"a" => ["one"]}, schema: {"a" => Polars::String})
+      error = assert_raises(DeltaLake::SchemaMismatchError) do
+        DeltaLake.write(table_uri, df)
+      end
+      assert_equal "Invalid data type for Delta Lake: Utf8View", error.message
+    end
+  end
+
   def test_time
     with_new_table do |table_uri|
       df = Polars::DataFrame.new({"a" => [1]}, schema: {"a" => Polars::Time})
