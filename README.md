@@ -22,13 +22,13 @@ Write data
 
 ```ruby
 df = Polars::DataFrame.new({"a" => [1, 2], "b" => [3.0, 4.0]})
-DeltaLake.write("./data/delta", df)
+DeltaLake.write("./delta/table", df)
 ```
 
 Load a table
 
 ```ruby
-dt = DeltaLake::Table.new("./data/delta")
+dt = DeltaLake::Table.new("./delta/table")
 df2 = dt.to_polars
 ```
 
@@ -41,13 +41,13 @@ lf = dt.to_polars(eager: false)
 Append rows
 
 ```ruby
-DeltaLake.write("./data/delta", df, mode: "append")
+DeltaLake.write("./delta/table", df, mode: "append")
 ```
 
 Overwrite a table
 
 ```ruby
-DeltaLake.write("./data/delta", df, mode: "overwrite")
+DeltaLake.write("./delta/table", df, mode: "overwrite")
 ```
 
 Add a constraint
@@ -89,7 +89,7 @@ dt.optimize.z_order(["a"])
 Load a previous version of a table
 
 ```ruby
-dt = DeltaLake::Table.new("./data/delta", version: 1)
+dt = DeltaLake::Table.new("./delta/table", version: 1)
 # or
 dt.load_as_version(1)
 ```
