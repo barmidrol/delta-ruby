@@ -192,21 +192,24 @@ module DeltaLake
       require "polars-df"
 
       sources = file_uris
-      lf =
-        if sources.empty?
-          Polars::LazyFrame.new
-        else
-          delta_keys = [
-            "AWS_S3_ALLOW_UNSAFE_RENAME",
-            "AWS_S3_LOCKING_PROVIDER",
-            "CONDITIONAL_PUT",
-            "DELTA_DYNAMO_TABLE_NAME"
-          ]
-          storage_options = @storage_options&.reject { |k, _| delta_keys.include?(k.to_s.upcase) }
-          Polars.scan_parquet(sources, storage_options: storage_options, rechunk: rechunk)
+      if sources.empty?
+        lf = Polars::LazyFrame.new
+      else
+        delta_keys = [
+          "AWS_S3_ALLOW_UNSAFE_RENAME",
+          "AWS_S3_LOCKING_PROVIDER",
+          "CONDITIONAL_PUT",
+          "DELTA_DYNAMO_TABLE_NAME"
+        ]
+        storage_options = @storage_options&.reject { |k, _| delta_keys.include?(k.to_s.upcase) }
+        lf = Polars.scan_parquet(sources, storage_options: storage_options, rechunk: rechunk)
+
+        if columns
+          # by_name requires polars-df > 0.15.0
+          lf = lf.select(Polars.cs.by_name(*columns))
         end
-      # by_name requires polars-df > 0.15.0
-      lf = lf.select(Polars.cs.by_name(*columns)) if columns
+      end
+
       eager ? lf.collect : lf
     end
 
