@@ -83,7 +83,7 @@ dt.optimize.compact
 Colocate similar data in the same files
 
 ```ruby
-dt.optimize.z_order(["category_id"])
+dt.optimize.z_order(["category"])
 ```
 
 Load a previous version of a table
