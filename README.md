@@ -21,14 +21,14 @@ It can take 5-10 minutes to compile the gem.
 Write data
 
 ```ruby
-df = Polars::DataFrame.new({"a" => [1, 2], "b" => [3.0, 4.0]})
-DeltaLake.write("./delta/table", df)
+df = Polars::DataFrame.new({"id" => [1, 2], "value" => [3.0, 4.0]})
+DeltaLake.write("./events", df)
 ```
 
 Load a table
 
 ```ruby
-dt = DeltaLake::Table.new("./delta/table")
+dt = DeltaLake::Table.new("./events")
 df2 = dt.to_polars
 ```
 
@@ -41,31 +41,31 @@ lf = dt.to_polars(eager: false)
 Append rows
 
 ```ruby
-DeltaLake.write("./delta/table", df, mode: "append")
+DeltaLake.write("./events", df, mode: "append")
 ```
 
 Overwrite a table
 
 ```ruby
-DeltaLake.write("./delta/table", df, mode: "overwrite")
+DeltaLake.write("./events", df, mode: "overwrite")
 ```
 
 Add a constraint
 
 ```ruby
-dt.alter.add_constraint({"a_gt_0" => "a > 0"})
+dt.alter.add_constraint({"id_gt_0" => "id > 0"})
 ```
 
 Drop a constraint
 
 ```ruby
-dt.alter.drop_constraint("a_gt_0")
+dt.alter.drop_constraint("id_gt_0")
 ```
 
 Delete rows
 
 ```ruby
-dt.delete("a > 1")
+dt.delete("id > 1")
 ```
 
 Vacuum
@@ -83,13 +83,13 @@ dt.optimize.compact
 Colocate similar data in the same files
 
 ```ruby
-dt.optimize.z_order(["a"])
+dt.optimize.z_order(["category_id"])
 ```
 
 Load a previous version of a table
 
 ```ruby
-dt = DeltaLake::Table.new("./delta/table", version: 1)
+dt = DeltaLake::Table.new("./events", version: 1)
 # or
 dt.load_as_version(1)
 ```
