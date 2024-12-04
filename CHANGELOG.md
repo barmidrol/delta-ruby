@@ -1,6 +1,6 @@
 ## 0.1.3 (unreleased)
 
-- Added `rechunk` option to `to_polars` method
+- Added `rechunk` and `columns` options to `to_polars` method
 
 ## 0.1.2 (2024-12-03)
 

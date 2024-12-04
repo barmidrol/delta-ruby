@@ -188,7 +188,7 @@ module DeltaLake
       JSON.parse(metrics)
     end
 
-    def to_polars(eager: true, rechunk: false)
+    def to_polars(eager: true, rechunk: false, columns: nil)
       require "polars-df"
 
       sources = file_uris
@@ -205,6 +205,7 @@ module DeltaLake
           storage_options = @storage_options&.reject { |k, _| delta_keys.include?(k.to_s.upcase) }
           Polars.scan_parquet(sources, storage_options: storage_options, rechunk: rechunk)
         end
+      lf = lf.select(Polars.cs.by_name(*columns)) if columns
       eager ? lf.collect : lf
     end
 
