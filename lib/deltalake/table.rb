@@ -205,6 +205,7 @@ module DeltaLake
           storage_options = @storage_options&.reject { |k, _| delta_keys.include?(k.to_s.upcase) }
           Polars.scan_parquet(sources, storage_options: storage_options, rechunk: rechunk)
         end
+      # by_name requires polars-df > 0.15.0
       lf = lf.select(Polars.cs.by_name(*columns)) if columns
       eager ? lf.collect : lf
     end
