@@ -1,3 +1,7 @@
+## 0.1.3 (unreleased)
+
+- Added `rechunk` option to `to_polars` method
+
 ## 0.1.2 (2024-12-03)
 
 - Updated `deltalake` to 0.22.2

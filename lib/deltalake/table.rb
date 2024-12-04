@@ -188,7 +188,7 @@ module DeltaLake
       JSON.parse(metrics)
     end
 
-    def to_polars(eager: true)
+    def to_polars(eager: true, rechunk: false)
       require "polars-df"
 
       sources = file_uris
@@ -203,7 +203,7 @@ module DeltaLake
             "DELTA_DYNAMO_TABLE_NAME"
           ]
           storage_options = @storage_options&.reject { |k, _| delta_keys.include?(k.to_s.upcase) }
-          Polars.scan_parquet(sources, storage_options: storage_options)
+          Polars.scan_parquet(sources, storage_options: storage_options, rechunk: rechunk)
         end
       eager ? lf.collect : lf
     end
