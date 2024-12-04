@@ -29,7 +29,7 @@ Load a table
 
 ```ruby
 dt = DeltaLake::Table.new("./events")
-df2 = dt.to_polars
+df = dt.to_polars
 ```
 
 Get a lazy frame
