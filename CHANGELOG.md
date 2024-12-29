@@ -1,4 +1,4 @@
-## 0.1.3 (unreleased)
+## 0.1.3 (2024-12-28)
 
 - Updated `deltalake` to 0.22.3
 - Added support for Ruby 3.4
