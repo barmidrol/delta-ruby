@@ -1,4 +1,4 @@
-## 0.1.4 (unreleased)
+## 0.1.4 (2025-01-02)
 
 - Updated `deltalake` to 0.23.0
 
