@@ -14,8 +14,8 @@ crate-type = ["cdylib"]
 arrow = { version = "53", features = ["ffi"] }
 arrow-schema = { version = "53", features = ["serde"] }
 chrono = "0.4"
-delta_kernel = "0.4"
-deltalake = { version = "=0.22.3", features = ["azure", "datafusion", "gcs", "s3"] }
+delta_kernel = "0.6"
+deltalake = { version = "=0.23.0", features = ["azure", "datafusion", "gcs", "s3"] }
 futures = "0.3"
 magnus = "0.7"
 num_cpus = "1"

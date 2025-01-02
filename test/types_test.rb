@@ -22,8 +22,8 @@ class TypesTest < Minitest::Test
       "datetime_ms_tz" => Polars::Datetime.new("ms", "UTC"),
       "datetime_us_tz" => Polars::Datetime.new("us", "UTC"),
       "datetime_ns_tz" => Polars::Datetime.new("ns", "UTC"),
-      # "string" => Polars::String,
-      # "binary" => Polars::Binary,
+      "string" => Polars::String,
+      "binary" => Polars::Binary,
       "list" => Polars::List.new(Polars::UInt32),
       "struct" => Polars::Struct.new([Polars::Field.new("a", Polars::UInt32)])
     }
@@ -67,8 +67,8 @@ class TypesTest < Minitest::Test
       assert_equal "timestamp", types["datetime_us_tz"]
       assert_equal "timestamp", types["datetime_ns_tz"]
 
-      # assert_equal "string", types["string"]
-      # assert_equal "binary", types["binary"]
+      assert_equal "string", types["string"]
+      assert_equal "binary", types["binary"]
 
       assert_equal "array<integer>", types["list"]
       assert_equal "struct<a: integer>", types["struct"]
@@ -100,18 +100,11 @@ class TypesTest < Minitest::Test
       assert_equal Polars::Datetime.new("us", "UTC"), pl_types["datetime_us_tz"]
       assert_equal Polars::Datetime.new("us", "UTC"), pl_types["datetime_ns_tz"]
 
+      assert_equal Polars::String, pl_types["string"]
+      assert_equal Polars::Binary, pl_types["binary"]
+
       assert_equal Polars::List.new(Polars::Int32), pl_types["list"]
       assert_equal Polars::Struct.new([Polars::Field.new("a", Polars::Int32)]), pl_types["struct"]
-    end
-  end
-
-  def test_string
-    with_new_table do |table_uri|
-      df = Polars::DataFrame.new({"a" => ["one"]}, schema: {"a" => Polars::String})
-      error = assert_raises(DeltaLake::SchemaMismatchError) do
-        DeltaLake.write(table_uri, df)
-      end
-      assert_equal "Invalid data type for Delta Lake: Utf8View", error.message
     end
   end
 
