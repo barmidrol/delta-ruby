@@ -756,14 +756,14 @@ impl RawDeltaTable {
     }
 
     pub fn create_checkpoint(&self) -> RbResult<()> {
-        rt().block_on(create_checkpoint(&self._table.borrow()))
+        rt().block_on(create_checkpoint(&self._table.borrow(), None))
             .map_err(RubyError::from)?;
 
         Ok(())
     }
 
     pub fn cleanup_metadata(&self) -> RbResult<()> {
-        rt().block_on(cleanup_metadata(&self._table.borrow()))
+        rt().block_on(cleanup_metadata(&self._table.borrow(), None))
             .map_err(RubyError::from)?;
 
         Ok(())
