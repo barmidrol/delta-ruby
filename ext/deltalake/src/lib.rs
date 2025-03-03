@@ -1198,9 +1198,8 @@ fn write_to_deltalake(
     }
 
     if let Some(writer_props) = writer_properties {
-        builder = builder.with_writer_properties(
-            set_writer_properties(writer_props).map_err(RubyError::from)?,
-        );
+        builder = builder
+            .with_writer_properties(set_writer_properties(writer_props).map_err(RubyError::from)?);
     }
 
     if let Some(name) = &name {
