@@ -42,6 +42,7 @@ impl RbMergeBuilder {
 }
 
 impl RbMergeBuilder {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         log_store: LogStoreRef,
         snapshot: DeltaTableState,

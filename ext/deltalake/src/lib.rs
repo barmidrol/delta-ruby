@@ -364,6 +364,7 @@ impl RawDeltaTable {
         Ok(metrics.files_deleted)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn compact_optimize(
         &self,
         partition_filters: Option<Vec<(String, String, PartitionFilterValue)>>,
@@ -411,6 +412,7 @@ impl RawDeltaTable {
         Ok(serde_json::to_string(&metrics).unwrap())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn z_order_optimize(
         &self,
         z_order_columns: Vec<String>,
@@ -492,7 +494,7 @@ impl RawDeltaTable {
     ) -> RbResult<()> {
         let feature = feature
             .into_iter()
-            .map(|v| TableFeatures::try_convert(v))
+            .map(TableFeatures::try_convert)
             .collect::<RbResult<Vec<_>>>()?;
         let cmd = AddTableFeatureBuilder::new(
             self._table.borrow().log_store(),
@@ -612,6 +614,7 @@ impl RawDeltaTable {
         Ok(ArrowArrayStream { stream: ffi_stream })
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn create_merge_builder(
         &self,
         source: RbArrowType<ArrowArrayStreamReader>,
