@@ -1,4 +1,5 @@
 use arrow_schema::ArrowError;
+use deltalake::datafusion::error::DataFusionError;
 use deltalake::protocol::ProtocolError;
 use deltalake::{errors::DeltaTableError, ObjectStoreError};
 use magnus::{exception, Error as RbErr, Module, RModule, Ruby};
@@ -98,9 +99,14 @@ fn checkpoint_to_rb(err: ProtocolError) -> RbErr {
     }
 }
 
+fn datafusion_to_rb(err: DataFusionError) -> RbErr {
+    DeltaError::new_err(err.to_string())
+}
+
 pub enum RubyError {
     DeltaTable(DeltaTableError),
     Protocol(ProtocolError),
+    DataFusion(DataFusionError),
 }
 
 impl From<DeltaTableError> for RubyError {
@@ -115,11 +121,18 @@ impl From<ProtocolError> for RubyError {
     }
 }
 
+impl From<DataFusionError> for RubyError {
+    fn from(err: DataFusionError) -> Self {
+        RubyError::DataFusion(err)
+    }
+}
+
 impl From<RubyError> for RbErr {
     fn from(value: RubyError) -> Self {
         match value {
             RubyError::DeltaTable(err) => inner_to_rb_err(err),
             RubyError::Protocol(err) => checkpoint_to_rb(err),
+            RubyError::DataFusion(err) => datafusion_to_rb(err),
         }
     }
 }

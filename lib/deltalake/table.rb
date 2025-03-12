@@ -1,5 +1,7 @@
 module DeltaLake
   class Table
+    FSCK_METRICS_FILES_REMOVED_LABEL = "files_removed"
+
     def initialize(
       table_uri,
       version: nil,
@@ -244,7 +246,11 @@ module DeltaLake
           commit_properties,
           post_commithook_properties
         )
-      JSON.parse(metrics).transform_keys(&:to_sym)
+      deserialized_metrics = JSON.parse(metrics)
+      deserialized_metrics[FSCK_METRICS_FILES_REMOVED_LABEL] = JSON.parse(
+        deserialized_metrics[FSCK_METRICS_FILES_REMOVED_LABEL]
+      )
+      deserialized_metrics.transform_keys(&:to_sym)
     end
 
     def transaction_versions

@@ -8,6 +8,7 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::future::IntoFuture;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time;
 
 use chrono::{DateTime, Duration, FixedOffset, Utc};
@@ -15,8 +16,9 @@ use delta_kernel::schema::StructField;
 use deltalake::arrow::ffi_stream::{ArrowArrayStreamReader, FFI_ArrowArrayStream};
 use deltalake::arrow::record_batch::RecordBatchIterator;
 use deltalake::checkpoints::{cleanup_metadata, create_checkpoint};
-use deltalake::datafusion::physical_plan::ExecutionPlan;
-use deltalake::datafusion::prelude::SessionContext;
+use deltalake::datafusion::catalog::TableProvider;
+use deltalake::datafusion::prelude::{col, SessionContext};
+use deltalake::delta_datafusion::DeltaCdfTableProvider;
 use deltalake::errors::DeltaTableError;
 use deltalake::kernel::{scalars::ScalarExt, StructType, Transaction};
 use deltalake::operations::add_column::AddColumnBuilder;
@@ -583,13 +585,25 @@ impl RawDeltaTable {
             cdf_read = cdf_read.with_starting_timestamp(ending_ts);
         }
 
-        if let Some(columns) = columns {
-            cdf_read = cdf_read.with_columns(columns);
-        }
+        let table_provider: Arc<dyn TableProvider> =
+            Arc::new(DeltaCdfTableProvider::try_new(cdf_read).map_err(RubyError::from)?);
 
-        cdf_read = cdf_read.with_session_ctx(ctx.clone());
+        let table_name: String = "source".to_string();
 
-        let plan = rt().block_on(cdf_read.build()).map_err(RubyError::from)?;
+        ctx.register_table(table_name.clone(), table_provider)
+            .map_err(RubyError::from)?;
+
+        let sql = format!("SELECT * FROM `source`");
+
+        let plan = rt()
+            .block_on(async {
+                let mut df = ctx.sql(&sql).await?;
+                if let Some(columns) = columns {
+                    df = df.select(columns.iter().map(|c| col(c)).collect())?;
+                }
+                df.create_physical_plan().await
+            })
+            .map_err(RubyError::from)?;
 
         let mut tasks = vec![];
         for p in 0..plan.properties().output_partitioning().partition_count() {
@@ -928,9 +942,6 @@ fn set_writer_properties(writer_properties: RbWriterProperties) -> DeltaResult<W
     if let Some(default_column_properties) = default_column_properties {
         if let Some(dictionary_enabled) = default_column_properties.dictionary_enabled {
             properties = properties.set_dictionary_enabled(dictionary_enabled);
-        }
-        if let Some(max_statistics_size) = default_column_properties.max_statistics_size {
-            properties = properties.set_max_statistics_size(max_statistics_size);
         }
         if let Some(bloom_filter_properties) = default_column_properties.bloom_filter_properties {
             if let Some(set_bloom_filter_enabled) = bloom_filter_properties.set_bloom_filter_enabled
