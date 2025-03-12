@@ -90,6 +90,9 @@ class TableTest < Minitest::Test
         Polars::DataFrame.new(cdf)
       end
       assert_equal "the C stream was already released", error.message
+
+      cdf = dt.load_cdf(starting_version: 1, ending_version: 2, columns: ["a", "_commit_timestamp"])
+      assert_equal ["a", "_commit_timestamp"], Polars::DataFrame.new(cdf).columns
     end
   end
 
