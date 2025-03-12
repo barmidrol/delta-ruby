@@ -17,7 +17,7 @@ use deltalake::arrow::ffi_stream::{ArrowArrayStreamReader, FFI_ArrowArrayStream}
 use deltalake::arrow::record_batch::RecordBatchIterator;
 use deltalake::checkpoints::{cleanup_metadata, create_checkpoint};
 use deltalake::datafusion::catalog::TableProvider;
-use deltalake::datafusion::prelude::{col, SessionContext};
+use deltalake::datafusion::prelude::SessionContext;
 use deltalake::delta_datafusion::DeltaCdfTableProvider;
 use deltalake::errors::DeltaTableError;
 use deltalake::kernel::{scalars::ScalarExt, StructType, Transaction};
@@ -588,18 +588,12 @@ impl RawDeltaTable {
         let table_provider: Arc<dyn TableProvider> =
             Arc::new(DeltaCdfTableProvider::try_new(cdf_read).map_err(RubyError::from)?);
 
-        let table_name: String = "source".to_string();
-
-        ctx.register_table(table_name.clone(), table_provider)
-            .map_err(RubyError::from)?;
-
-        let sql = format!("SELECT * FROM `source`");
-
         let plan = rt()
             .block_on(async {
-                let mut df = ctx.sql(&sql).await?;
+                let mut df = ctx.read_table(table_provider)?;
                 if let Some(columns) = columns {
-                    df = df.select(columns.iter().map(|c| col(c)).collect())?;
+                    let cols: Vec<_> = columns.iter().map(|c| c.as_ref()).collect();
+                    df = df.select_columns(&cols)?;
                 }
                 df.create_physical_plan().await
             })
