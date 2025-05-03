@@ -1,3 +1,7 @@
+## 0.1.7 (unreleased)
+
+- Updated `deltalake` to 0.26.0
+
 ## 0.1.6 (2025-03-12)
 
 - Updated `deltalake` to 0.25.0
