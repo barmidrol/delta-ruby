@@ -1,5 +1,6 @@
 ## 0.2.0 (unreleased)
 
+- Added precompiled gems
 - Dropped support for Ruby < 3.2
 
 ## 0.1.7 (2025-05-03)
