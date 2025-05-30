@@ -207,7 +207,7 @@ module DeltaLake
         lf =
           Polars.scan_parquet(
             sources,
-            hive_partitioning: metadata.partition_columns.any?,
+            hive_partitioning: true,
             storage_options: storage_options,
             rechunk: rechunk
           )
