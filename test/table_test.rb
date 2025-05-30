@@ -17,6 +17,13 @@ class TableTest < Minitest::Test
     end
   end
 
+  def test_partition_by
+    df = Polars::DataFrame.new({"a" => [1, 2, 3], "b" => [4, 4, 5]})
+    with_table(df, partition_by: "b") do |dt|
+      assert_equal df, dt.to_polars
+    end
+  end
+
   def test_metadata
     df = Polars::DataFrame.new({"a" => [1, 2, 3], "b" => [4, 4, 5]})
     with_table(df, name: "hello", description: "world", partition_by: "b") do |dt|
