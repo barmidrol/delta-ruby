@@ -19,15 +19,14 @@ jobs:
         uses: oxidize-rb/actions/fetch-ci-data@v1
         with:
           supported-ruby-platforms: |
-            # Excluding:
-            # `arm-linux`: Cranelift doesn't support 32-bit architectures
-            # `x64-mingw32`: `x64-mingw-ucrt` should be used for Ruby 3.1+ (https://github.com/rake-compiler/rake-compiler-dock?tab=readme-ov-file#windows)
-            # 3.0 is deprecated as stable ruby version according to:
-            #  https://github.com/oxidize-rb/actions/blob/main/fetch-ci-data/evaluate.rb#L54
-            exclude: [arm-linux, x64-mingw32]
+            # Excluding problematic platforms:
+            # arm-linux: Cranelift doesn't support 32-bit architectures
+            # x64-mingw32: Use x64-mingw-ucrt for Ruby 3.1+
+            # darwin platforms: aws-lc-sys cross-compilation issues from Linux
+            exclude: [arm-linux, x64-mingw32, arm64-darwin, x86_64-darwin]
           stable-ruby-versions: |
             exclude: [head]
-  
+
   build:
     name: Build native gems
     needs: ci-data
@@ -39,6 +38,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install clang to avoid aws-lc-sys GCC bug
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang
+
       - uses: oxidize-rb/actions/setup-ruby-and-rust@v1
         with:
           ruby-version: "3.3"
@@ -46,102 +50,28 @@ jobs:
           cargo-cache: true
           cargo-vendor: true
           cache-version: v1-${{ matrix.ruby-platform }}
+        env:
+          # Use clang instead of GCC to avoid aws-lc-sys compiler bug
+          CC: clang
+          CXX: clang++
 
       - uses: oxidize-rb/actions/cross-gem@v1
         with:
           version: latest
           platform: ${{ matrix.ruby-platform }}
           ruby-versions: ${{ join(fromJSON(needs.ci-data.outputs.result).stable-ruby-versions, ', ') }}
+        env:
+          # Use clang for cross-compilation to avoid aws-lc-sys GCC bug
+          CC: clang
+          CXX: clang++
 
       - name: Smoke gem install
-        if: matrix.ruby-platform == 'x86_64-linux' # GitHub actions architecture
+        if: matrix.ruby-platform == 'x86_64-linux'
         run: |
           gem install pkg/deltalake-rb-*x86_64-linux.gem --verbose
-          echo "✅ Successfully gem installed"
+          ruby -e "require 'deltalake'; puts '✅ Precompiled gem works: ' + DeltaLake.precompiled?.to_s"
 
-# jobs:
-#   # Build the source gem first
-#   source:
-#     runs-on: ubuntu-latest
-#     steps:
-#       - uses: actions/checkout@v4
-#       - uses: ruby/setup-ruby@v1
-#         with:
-#           ruby-version: 3.3
-#           bundler-cache: true
-#       - run: gem build deltalake-rb.gemspec
-#       - uses: actions/upload-artifact@v4
-#         with:
-#           name: source-gem
-#           path: "*.gem"
+# Future: Add source gem build and publishing steps here
 
-#   # Build precompiled gems for different platforms
-#   precompiled:
-#     strategy:
-#       fail-fast: false
-#       matrix:
-#         include:
-#           - platform: x86_64-linux
-#             target: x86_64-unknown-linux-gnu
-#           # - platform: x86_64-linux-musl
-#           #   target: x86_64-unknown-linux-musl
-#           # - platform: aarch64-linux
-#           #   target: aarch64-unknown-linux-gnu
-#           # - platform: aarch64-linux-musl
-#           #   target: aarch64-unknown-linux-musl
-#           # - platform: x86_64-darwin
-#           #   target: x86_64-apple-darwin
-#           # - platform: arm64-darwin
-#           #   target: aarch64-apple-darwin
-#           # - platform: x64-mingw-ucrt
-#           #   target: x86_64-pc-windows-gnu
-#     runs-on: ubuntu-latest
-#     name: ${{ matrix.platform }}
-#     steps:
-#       - uses: actions/checkout@v4
-      
-#       # TODO: Temporarily commented out for testing - uncomment for production
-#       # - run: |
-#       #     cargo install --locked --git https://github.com/ankane/cargo-3pl
-#       #     git clone https://github.com/ankane/3pl-source.git
-#       #     cargo 3pl --target ${{ matrix.target }} --require-files --source 3pl-source > LICENSE-THIRD-PARTY.txt
-      
-#       - uses: ruby/setup-ruby@v1
-#         with:
-#           ruby-version: 3.3
-#       - uses: oxidize-rb/actions/cross-gem@v1
-#         id: cross-gem
-#         with:
-#           platform: ${{ matrix.platform }}
-#           ruby-versions: "3.4,3.3,3.2"
-#       - uses: actions/upload-artifact@v4
-#         with:
-#           name: cross-gem-${{ matrix.platform }}
-#           path: ${{ steps.cross-gem.outputs.gem-path }}
-
-#   # Publish all gems to RubyGems
-#   publish:
-#     needs: [source, precompiled]
-#     runs-on: ubuntu-latest
-#     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-#     steps:
-#       - uses: actions/checkout@v4
-#       - uses: ruby/setup-ruby@v1
-#         with:
-#           ruby-version: 3.3
-      
-#       # Download all artifacts
-#       - uses: actions/download-artifact@v4
-#         with:
-#           path: gems
-      
-#       # Publish source gem
-#       - run: |
-#           mkdir -p ~/.gem
-#           echo ":rubygems_api_key: ${{ secrets.RUBYGEMS_API_KEY }}" > ~/.gem/credentials
-#           chmod 0600 ~/.gem/credentials
-#           gem push gems/source-gem/*.gem
-      
-#       # Publish precompiled gems
-#       - run: |
-#           find gems -name "*.gem" -not -path "gems/source-gem/*" -exec gem push {} \;
+# Note: macOS gems excluded due to aws-lc-sys cross-compilation issues
+# Can be built separately on macOS runners if needed in the future
