@@ -38,10 +38,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install clang to avoid aws-lc-sys GCC bug
+      - name: Install newer GCC to avoid aws-lc-sys memcmp bug
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang
+          # Install GCC 12 which doesn't have the memcmp bug
+          sudo apt-get install -y gcc-12 g++-12
+          # Set as default
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100
+          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 100
+          # Verify version
+          gcc --version
+          g++ --version
 
       - uses: oxidize-rb/actions/setup-ruby-and-rust@v1
         with:
@@ -50,20 +57,12 @@ jobs:
           cargo-cache: true
           cargo-vendor: true
           cache-version: v1-${{ matrix.ruby-platform }}
-        env:
-          # Use clang instead of GCC to avoid aws-lc-sys compiler bug
-          CC: clang
-          CXX: clang++
 
       - uses: oxidize-rb/actions/cross-gem@v1
         with:
           version: latest
           platform: ${{ matrix.ruby-platform }}
           ruby-versions: ${{ join(fromJSON(needs.ci-data.outputs.result).stable-ruby-versions, ', ') }}
-        env:
-          # Use clang for cross-compilation to avoid aws-lc-sys GCC bug
-          CC: clang
-          CXX: clang++
 
       - name: Smoke gem install
         if: matrix.ruby-platform == 'x86_64-linux'
