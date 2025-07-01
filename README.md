@@ -8,13 +8,41 @@ Supports local files and Amazon S3
 
 ## Installation
 
-Add this line to your application’s Gemfile:
+Add this line to your application's Gemfile:
 
 ```ruby
 gem "deltalake-rb"
 ```
 
-It can take 5-10 minutes to compile the gem.
+And then execute:
+
+```sh
+bundle install
+```
+
+Or install it yourself as:
+
+```sh
+gem install deltalake-rb
+```
+
+### Precompiled Gems
+
+This gem provides precompiled binaries for common platforms, which eliminates the need for Rust compilation during installation.
+
+Supported platforms:
+- Linux x86_64 (GNU and musl)
+- Linux ARM64 (GNU and musl)
+- macOS x86_64 (Intel)
+- macOS ARM64 (Apple Silicon)
+- Windows x64
+
+If your platform isn't supported or you prefer to compile from source, the gem will automatically fallback to building the native extension with Rust.
+
+To force compilation from source:
+```sh
+gem install deltalake-rb --platform=ruby
+```
 
 ## Getting Started
 

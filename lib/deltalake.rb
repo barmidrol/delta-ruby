@@ -64,6 +64,17 @@ module DeltaLake
   end
 
   class << self
+    # Check if the gem was installed as a precompiled binary
+    def precompiled?
+      # Check if the native extension was compiled from source or precompiled
+      # This is useful for debugging installation issues
+      gem_spec = Gem.loaded_specs["deltalake-rb"]
+      return false unless gem_spec
+
+      # Precompiled gems don't have extensions
+      gem_spec.extensions.empty?
+    end
+
     def write(
       table_or_uri,
       data,

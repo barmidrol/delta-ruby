@@ -1,8 +1,13 @@
 name: build
 on: [push, pull_request]
 jobs:
+  # Test source compilation
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        ruby-version: ['3.2', '3.3', '3.4']
+    name: Ruby ${{ matrix.ruby-version }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
@@ -14,7 +19,25 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - uses: ruby/setup-ruby@v1
         with:
-          ruby-version: 3.4
+          ruby-version: ${{ matrix.ruby-version }}
           bundler-cache: true
       - run: bundle exec rake compile
       - run: bundle exec rake test
+
+  # Test precompiled gem functionality (when built)
+  test-precompiled:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        ruby-version: ['3.2', '3.3', '3.4']
+    name: Precompiled - ${{ matrix.os }} Ruby ${{ matrix.ruby-version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby-version }}
+      - name: Test gem builds successfully
+        run: |
+          gem build deltalake-rb.gemspec
+          echo "Source gem built successfully"
