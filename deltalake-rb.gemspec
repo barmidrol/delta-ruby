@@ -12,9 +12,17 @@ Gem::Specification.new do |spec|
 
   spec.files         = Dir["*.{md,txt}", "{ext,lib}/**/*", "Cargo.*"]
   spec.require_path  = "lib"
-  spec.extensions    = ["ext/deltalake/extconf.rb"]
 
   spec.required_ruby_version = ">= 3.2"
 
-  spec.add_dependency "rb_sys"
+  # Configure for platform-specific gems
+  # For source gem (default platform), include extensions and rb_sys dependency
+  if spec.respond_to?(:platform) && spec.platform != Gem::Platform::RUBY
+    # This is a precompiled gem - no extension building needed
+    spec.files = Dir["*.{md,txt}", "lib/**/*"]
+  else
+    # This is the source gem - needs extension building
+    spec.extensions = ["ext/deltalake/extconf.rb"]
+    spec.add_dependency "rb_sys", "~> 0.9"
+  end
 end

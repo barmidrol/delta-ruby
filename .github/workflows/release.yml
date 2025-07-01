@@ -1,7 +1,28 @@
 name: release
-on: workflow_dispatch
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
 jobs:
-  release:
+  # Build the source gem first
+  source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.3
+          bundler-cache: true
+      - run: gem build deltalake-rb.gemspec
+      - uses: actions/upload-artifact@v4
+        with:
+          name: source-gem
+          path: "*.gem"
+
+  # Build precompiled gems for different platforms
+  precompiled:
     strategy:
       fail-fast: false
       matrix:
@@ -31,7 +52,7 @@ jobs:
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: 3.3
-      - uses: oxidize-rb/actions/cross-gem@v1
+      - uses: oxidize-rb/actions/cross-gem@v7
         id: cross-gem
         with:
           platform: ${{ matrix.platform }}
@@ -40,3 +61,30 @@ jobs:
         with:
           name: cross-gem-${{ matrix.platform }}
           path: ${{ steps.cross-gem.outputs.gem-path }}
+
+  # Publish all gems to RubyGems
+  publish:
+    needs: [source, precompiled]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.3
+      
+      # Download all artifacts
+      - uses: actions/download-artifact@v4
+        with:
+          path: gems
+      
+      # Publish source gem
+      - run: |
+          mkdir -p ~/.gem
+          echo ":rubygems_api_key: ${{ secrets.RUBYGEMS_API_KEY }}" > ~/.gem/credentials
+          chmod 0600 ~/.gem/credentials
+          gem push gems/source-gem/*.gem
+      
+      # Publish precompiled gems
+      - run: |
+          find gems -name "*.gem" -not -path "gems/source-gem/*" -exec gem push {} \;
